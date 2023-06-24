@@ -38,7 +38,7 @@ from langchain.callbacks.manager import (
 )
 from langchain.tools.base import BaseTool
 from langchain.utilities.jira import JiraAPIWrapper
-
+from langchain.sync_utils import make_async
 
 class JiraAction(BaseTool):
     api_wrapper: JiraAPIWrapper = Field(default_factory=JiraAPIWrapper)
@@ -56,8 +56,9 @@ class JiraAction(BaseTool):
 
     async def _arun(
         self,
-        _: str,
+        instructions: str,
         run_manager: Optional[AsyncCallbackManagerForToolRun] = None,
     ) -> str:
         """Use the Atlassian Jira API to run an operation."""
-        raise NotImplementedError("JiraAction does not support async")
+        # raise NotImplementedError("JiraAction does not support async")
+        return await make_async(self.api_wrapper.run)(self.mode, instructions)

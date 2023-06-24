@@ -9,7 +9,7 @@ from langchain.callbacks.manager import (
     CallbackManagerForToolRun,
 )
 from langchain.tools.base import BaseTool
-
+from langchain.sync_utils import make_async
 
 def _print_func(text: str) -> None:
     print("\n")
@@ -43,4 +43,6 @@ class HumanInputRun(BaseTool):
         run_manager: Optional[AsyncCallbackManagerForToolRun] = None,
     ) -> str:
         """Use the Human tool asynchronously."""
-        raise NotImplementedError("Human tool does not support async")
+        # raise NotImplementedError("Human tool does not support async")
+        await make_async(self.prompt_func)(query)
+        return await make_async(self.input_func)()

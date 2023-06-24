@@ -7,7 +7,7 @@ from langchain.callbacks.manager import (
 )
 from langchain.tools.base import BaseTool
 from langchain.utilities.graphql import GraphQLAPIWrapper
-
+from langchain.sync_utils import make_async
 
 class BaseGraphQLTool(BaseTool):
     """Base tool for querying a GraphQL API."""
@@ -43,4 +43,7 @@ class BaseGraphQLTool(BaseTool):
         run_manager: Optional[AsyncCallbackManagerForToolRun] = None,
     ) -> str:
         """Use the Graphql tool asynchronously."""
-        raise NotImplementedError("GraphQLAPIWrapper does not support async")
+        # raise NotImplementedError("GraphQLAPIWrapper does not support async")
+        result = await make_async(self.graphql_wrapper.run)(tool_input)
+        return json.dumps(result, indent=2)
+

@@ -10,7 +10,7 @@ from langchain.callbacks.manager import (
 )
 from langchain.tools.base import BaseTool
 from langchain.utilities import OpenWeatherMapAPIWrapper
-
+from langchain.sync_utils import make_async
 
 class OpenWeatherMapQueryRun(BaseTool):
     """Tool that adds the capability to query using the OpenWeatherMap API."""
@@ -38,4 +38,5 @@ class OpenWeatherMapQueryRun(BaseTool):
         run_manager: Optional[AsyncCallbackManagerForToolRun] = None,
     ) -> str:
         """Use the OpenWeatherMap tool asynchronously."""
-        raise NotImplementedError("OpenWeatherMapQueryRun does not support async")
+        # raise NotImplementedError("OpenWeatherMapQueryRun does not support async")
+        return await make_async(self.api_wrapper.run)(location)

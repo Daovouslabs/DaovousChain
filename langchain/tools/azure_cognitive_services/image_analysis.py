@@ -153,4 +153,13 @@ class AzureCogsImageAnalysisTool(BaseTool):
         run_manager: Optional[AsyncCallbackManagerForToolRun] = None,
     ) -> str:
         """Use the tool asynchronously."""
-        raise NotImplementedError("AzureCogsImageAnalysisTool does not support async")
+        # raise NotImplementedError("AzureCogsImageAnalysisTool does not support async")
+        from langchain.sync_utils import make_async
+        try:
+            image_analysis_result = await make_async(self._image_analysis)(query)
+            if not image_analysis_result:
+                return "No good image analysis result was found"
+
+            return await make_async(self._format_image_analysis_result)(image_analysis_result)
+        except Exception as e:
+            raise RuntimeError(f"Error while running AzureCogsImageAnalysisTool: {e}")

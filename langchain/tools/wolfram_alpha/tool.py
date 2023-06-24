@@ -8,7 +8,7 @@ from langchain.callbacks.manager import (
 )
 from langchain.tools.base import BaseTool
 from langchain.utilities.wolfram_alpha import WolframAlphaAPIWrapper
-
+from langchain.sync_utils import make_async
 
 class WolframAlphaQueryRun(BaseTool):
     """Tool that adds the capability to query using the Wolfram Alpha SDK."""
@@ -36,4 +36,5 @@ class WolframAlphaQueryRun(BaseTool):
         run_manager: Optional[AsyncCallbackManagerForToolRun] = None,
     ) -> str:
         """Use the WolframAlpha tool asynchronously."""
-        raise NotImplementedError("WolframAlphaQueryRun does not support async")
+        # raise NotImplementedError("WolframAlphaQueryRun does not support async")
+        return await make_async(self.api_wrapper.run)(query)

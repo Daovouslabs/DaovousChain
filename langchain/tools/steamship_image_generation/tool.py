@@ -25,7 +25,7 @@ from langchain.callbacks.manager import (
 from langchain.tools import BaseTool
 from langchain.tools.steamship_image_generation.utils import make_image_public
 from langchain.utils import get_from_dict_or_env
-
+from langchain.sync_utils import make_async
 if TYPE_CHECKING:
     pass
 
@@ -124,4 +124,5 @@ class SteamshipImageGenerationTool(BaseTool):
         run_manager: Optional[AsyncCallbackManagerForToolRun] = None,
     ) -> str:
         """Use the tool asynchronously."""
-        raise NotImplementedError("GenerateImageTool does not support async")
+        # raise NotImplementedError("GenerateImageTool does not support async")
+        return await make_async(self._run)(query, run_manager)

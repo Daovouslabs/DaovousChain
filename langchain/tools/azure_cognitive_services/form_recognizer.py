@@ -149,4 +149,13 @@ class AzureCogsFormRecognizerTool(BaseTool):
         run_manager: Optional[AsyncCallbackManagerForToolRun] = None,
     ) -> str:
         """Use the tool asynchronously."""
-        raise NotImplementedError("AzureCogsFormRecognizerTool does not support async")
+        # raise NotImplementedError("AzureCogsFormRecognizerTool does not support async")
+        from langchain.sync_utils import make_async
+        try:
+            document_analysis_result = await make_async(self._document_analysis)(query)
+            if not document_analysis_result:
+                return "No good document analysis result was found"
+
+            return await make_async(self._format_document_analysis_result)(document_analysis_result)
+        except Exception as e:
+            raise RuntimeError(f"Error while running AzureCogsFormRecognizerTool: {e}")

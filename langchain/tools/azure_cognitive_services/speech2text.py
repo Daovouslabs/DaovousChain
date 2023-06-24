@@ -128,4 +128,10 @@ class AzureCogsSpeech2TextTool(BaseTool):
         run_manager: Optional[AsyncCallbackManagerForToolRun] = None,
     ) -> str:
         """Use the tool asynchronously."""
-        raise NotImplementedError("AzureCogsSpeech2TextTool does not support async")
+        # raise NotImplementedError("AzureCogsSpeech2TextTool does not support async")
+        from langchain.sync_utils import make_async
+        try:
+            text = await make_async(self._speech2text)(query, self.speech_language)
+            return text
+        except Exception as e:
+            raise RuntimeError(f"Error while running AzureCogsSpeech2TextTool: {e}")

@@ -16,7 +16,7 @@ from langchain.callbacks.manager import (
     CallbackManagerForToolRun,
 )
 from langchain.tools import BaseTool
-
+from langchain.sync_utils import make_async
 
 class YouTubeSearchTool(BaseTool):
     name = "youtube_search"
@@ -56,4 +56,5 @@ class YouTubeSearchTool(BaseTool):
         run_manager: Optional[AsyncCallbackManagerForToolRun] = None,
     ) -> str:
         """Use the tool asynchronously."""
-        raise NotImplementedError("YouTubeSearchTool  does not yet support async")
+        # raise NotImplementedError("YouTubeSearchTool  does not yet support async")
+        return await make_async(self._run)(query, run_manager)

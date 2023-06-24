@@ -63,7 +63,11 @@ class VectorStoreQATool(BaseVectorStoreTool, BaseTool):
         run_manager: Optional[AsyncCallbackManagerForToolRun] = None,
     ) -> str:
         """Use the tool asynchronously."""
-        raise NotImplementedError("VectorStoreQATool does not support async")
+        # raise NotImplementedError("VectorStoreQATool does not support async")
+        chain = RetrievalQA.from_chain_type(
+            self.llm, retriever=self.vectorstore.as_retriever()
+        )
+        return await chain.arun(query)
 
 
 class VectorStoreQAWithSourcesTool(BaseVectorStoreTool, BaseTool):
@@ -99,4 +103,8 @@ class VectorStoreQAWithSourcesTool(BaseVectorStoreTool, BaseTool):
         run_manager: Optional[AsyncCallbackManagerForToolRun] = None,
     ) -> str:
         """Use the tool asynchronously."""
-        raise NotImplementedError("VectorStoreQAWithSourcesTool does not support async")
+        # raise NotImplementedError("VectorStoreQAWithSourcesTool does not support async")
+        chain = RetrievalQAWithSourcesChain.from_chain_type(
+            self.llm, retriever=self.vectorstore.as_retriever()
+        )
+        return json.dumps(chain._acall({chain.question_key: query}, return_only_outputs=True))

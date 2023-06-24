@@ -15,7 +15,7 @@ from langchain.callbacks.manager import (
 )
 from langchain.tools.base import BaseTool
 from langchain.utilities import PythonREPL
-
+from langchain.sync_utils import make_async
 
 def _get_default_python_repl() -> PythonREPL:
     return PythonREPL(_globals=globals(), _locals=None)
@@ -68,7 +68,10 @@ class PythonREPLTool(BaseTool):
         run_manager: Optional[AsyncCallbackManagerForToolRun] = None,
     ) -> Any:
         """Use the tool asynchronously."""
-        raise NotImplementedError("PythonReplTool does not support async")
+        # raise NotImplementedError("PythonReplTool does not support async")
+        if self.sanitize_input:
+            query = sanitize_input(query)
+        return await make_async(self.python_repl.run)(query)
 
 
 class PythonAstREPLTool(BaseTool):
@@ -131,4 +134,5 @@ class PythonAstREPLTool(BaseTool):
         run_manager: Optional[AsyncCallbackManagerForToolRun] = None,
     ) -> str:
         """Use the tool asynchronously."""
-        raise NotImplementedError("PythonReplTool does not support async")
+        # raise NotImplementedError("PythonReplTool does not support async")
+        return await make_async(self._run)(query, run_manager)

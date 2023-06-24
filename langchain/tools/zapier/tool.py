@@ -88,7 +88,7 @@ from langchain.callbacks.manager import (
 from langchain.tools.base import BaseTool
 from langchain.tools.zapier.prompt import BASE_ZAPIER_TOOL_PROMPT
 from langchain.utilities.zapier import ZapierNLAWrapper
-
+from langchain.sync_utils import make_async
 
 class ZapierNLARunAction(BaseTool):
     """
@@ -142,11 +142,12 @@ class ZapierNLARunAction(BaseTool):
 
     async def _arun(
         self,
-        _: str,
+        instructions: str,
         run_manager: Optional[AsyncCallbackManagerForToolRun] = None,
     ) -> str:
         """Use the Zapier NLA tool to return a list of all exposed user actions."""
-        raise NotImplementedError("ZapierNLAListActions does not support async")
+        # raise NotImplementedError("ZapierNLAListActions does not support async")
+        return await make_async(self.api_wrapper.run_as_str)(self.action_id, instructions, self.params)
 
 
 ZapierNLARunAction.__doc__ = (
@@ -184,7 +185,8 @@ class ZapierNLAListActions(BaseTool):
         run_manager: Optional[AsyncCallbackManagerForToolRun] = None,
     ) -> str:
         """Use the Zapier NLA tool to return a list of all exposed user actions."""
-        raise NotImplementedError("ZapierNLAListActions does not support async")
+        # raise NotImplementedError("ZapierNLAListActions does not support async")
+        return await make_async(self.api_wrapper.list_as_str)()
 
 
 ZapierNLAListActions.__doc__ = (

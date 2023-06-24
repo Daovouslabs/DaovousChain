@@ -8,7 +8,7 @@ from langchain.callbacks.manager import (
 )
 from langchain.tools.base import BaseTool
 from langchain.utilities.bing_search import BingSearchAPIWrapper
-
+from langchain.sync_utils import make_async
 
 class BingSearchRun(BaseTool):
     """Tool that adds the capability to query the Bing search API."""
@@ -35,7 +35,8 @@ class BingSearchRun(BaseTool):
         run_manager: Optional[AsyncCallbackManagerForToolRun] = None,
     ) -> str:
         """Use the tool asynchronously."""
-        raise NotImplementedError("BingSearchRun does not support async")
+        # raise NotImplementedError("BingSearchRun does not support async")
+        return await make_async(self.api_wrapper.run)(query)
 
 
 class BingSearchResults(BaseTool):
@@ -64,4 +65,5 @@ class BingSearchResults(BaseTool):
         run_manager: Optional[AsyncCallbackManagerForToolRun] = None,
     ) -> str:
         """Use the tool asynchronously."""
-        raise NotImplementedError("BingSearchResults does not support async")
+        # raise NotImplementedError("BingSearchResults does not support async")
+        return str(await make_async(self.api_wrapper.results)(query, self.num_results))

@@ -14,7 +14,7 @@ from langchain.prompts import PromptTemplate
 from langchain.utilities.spark_sql import SparkSQL
 from langchain.tools.base import BaseTool
 from langchain.tools.spark_sql.prompt import QUERY_CHECKER
-
+from langchain.sync_utils import make_async
 
 class BaseSparkSQLTool(BaseModel):
     """Base tool for interacting with Spark SQL."""
@@ -53,7 +53,8 @@ class QuerySparkSQLTool(BaseSparkSQLTool, BaseTool):
         query: str,
         run_manager: Optional[AsyncCallbackManagerForToolRun] = None,
     ) -> str:
-        raise NotImplementedError("QuerySqlDbTool does not support async")
+        # raise NotImplementedError("QuerySqlDbTool does not support async")
+        return await make_async(self._run)(query, run_manager)
 
 
 class InfoSparkSQLTool(BaseSparkSQLTool, BaseTool):
@@ -80,7 +81,8 @@ class InfoSparkSQLTool(BaseSparkSQLTool, BaseTool):
         table_name: str,
         run_manager: Optional[AsyncCallbackManagerForToolRun] = None,
     ) -> str:
-        raise NotImplementedError("SchemaSqlDbTool does not support async")
+        # raise NotImplementedError("SchemaSqlDbTool does not support async")
+        return await make_async(self._run)(table_name, run_manager)
 
 
 class ListSparkSQLTool(BaseSparkSQLTool, BaseTool):
@@ -102,7 +104,8 @@ class ListSparkSQLTool(BaseSparkSQLTool, BaseTool):
         tool_input: str = "",
         run_manager: Optional[AsyncCallbackManagerForToolRun] = None,
     ) -> str:
-        raise NotImplementedError("ListTablesSqlDbTool does not support async")
+        # raise NotImplementedError("ListTablesSqlDbTool does not support async")
+        return await make_async(self._run)(tool_input, run_manager)
 
 
 class QueryCheckerTool(BaseSparkSQLTool, BaseTool):

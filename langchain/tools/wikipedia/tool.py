@@ -8,7 +8,7 @@ from langchain.callbacks.manager import (
 )
 from langchain.tools.base import BaseTool
 from langchain.utilities.wikipedia import WikipediaAPIWrapper
-
+from langchain.sync_utils import make_async
 
 class WikipediaQueryRun(BaseTool):
     """Tool that adds the capability to search using the Wikipedia API."""
@@ -36,4 +36,5 @@ class WikipediaQueryRun(BaseTool):
         run_manager: Optional[AsyncCallbackManagerForToolRun] = None,
     ) -> str:
         """Use the Wikipedia tool asynchronously."""
-        raise NotImplementedError("WikipediaQueryRun does not support async")
+        # raise NotImplementedError("WikipediaQueryRun does not support async")
+        return await make_async(self.api_wrapper.run)(query)

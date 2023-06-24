@@ -14,7 +14,7 @@ from langchain.prompts import PromptTemplate
 from langchain.sql_database import SQLDatabase
 from langchain.tools.base import BaseTool
 from langchain.tools.sql_database.prompt import QUERY_CHECKER
-
+from langchain.sync_utils import make_async
 
 class BaseSQLDatabaseTool(BaseModel):
     """Base tool for interacting with a SQL database."""
@@ -53,7 +53,8 @@ class QuerySQLDataBaseTool(BaseSQLDatabaseTool, BaseTool):
         query: str,
         run_manager: Optional[AsyncCallbackManagerForToolRun] = None,
     ) -> str:
-        raise NotImplementedError("QuerySqlDbTool does not support async")
+        # raise NotImplementedError("QuerySqlDbTool does not support async")
+        return await make_async(self._run)(query, run_manager)
 
 
 class InfoSQLDatabaseTool(BaseSQLDatabaseTool, BaseTool):
@@ -79,7 +80,8 @@ class InfoSQLDatabaseTool(BaseSQLDatabaseTool, BaseTool):
         table_name: str,
         run_manager: Optional[AsyncCallbackManagerForToolRun] = None,
     ) -> str:
-        raise NotImplementedError("SchemaSqlDbTool does not support async")
+        # raise NotImplementedError("SchemaSqlDbTool does not support async")
+        return await make_async(self._run)(table_name, run_manager)
 
 
 class ListSQLDatabaseTool(BaseSQLDatabaseTool, BaseTool):
@@ -101,7 +103,8 @@ class ListSQLDatabaseTool(BaseSQLDatabaseTool, BaseTool):
         tool_input: str = "",
         run_manager: Optional[AsyncCallbackManagerForToolRun] = None,
     ) -> str:
-        raise NotImplementedError("ListTablesSqlDbTool does not support async")
+        # raise NotImplementedError("ListTablesSqlDbTool does not support async")
+        return await make_async(self._run)(tool_input, run_manager)
 
 
 class QuerySQLCheckerTool(BaseSQLDatabaseTool, BaseTool):

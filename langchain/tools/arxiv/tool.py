@@ -10,7 +10,7 @@ from langchain.callbacks.manager import (
 )
 from langchain.tools.base import BaseTool
 from langchain.utilities.arxiv import ArxivAPIWrapper
-
+from langchain.sync_utils import make_async
 
 class ArxivQueryRun(BaseTool):
     """Tool that adds the capability to search using the Arxiv API."""
@@ -40,4 +40,5 @@ class ArxivQueryRun(BaseTool):
         run_manager: Optional[AsyncCallbackManagerForToolRun] = None,
     ) -> str:
         """Use the Arxiv tool asynchronously."""
-        raise NotImplementedError("ArxivAPIWrapper does not support async")
+        # raise NotImplementedError("ArxivAPIWrapper does not support async")
+        return await make_async(self.api_wrapper.run)(query)
