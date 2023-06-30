@@ -105,6 +105,7 @@ def _get_pal_math(llm: BaseLanguageModel) -> BaseTool:
         name="PAL-MATH",
         description="A language model that is really good at solving complex word math problems. Input should be a fully worded hard word math problem.",
         func=PALChain.from_math_prompt(llm).run,
+        coroutine=PALChain.from_math_prompt(llm).arun
     )
 
 
@@ -113,6 +114,7 @@ def _get_pal_colored_objects(llm: BaseLanguageModel) -> BaseTool:
         name="PAL-COLOR-OBJ",
         description="A language model that is really good at reasoning about position and the color attributes of objects. Input should be a fully worded hard reasoning problem. Make sure to include all information about the objects AND the final question you want to answer.",
         func=PALChain.from_colored_object_prompt(llm).run,
+        coroutine=PALChain.from_colored_object_prompt(llm).arun
     )
 
 
@@ -131,6 +133,7 @@ def _get_open_meteo_api(llm: BaseLanguageModel) -> BaseTool:
         name="Open Meteo API",
         description="Useful for when you want to get weather information from the OpenMeteo API. The input should be a question in natural language that this API can answer.",
         func=chain.run,
+        coroutine=chain.arun
     )
 
 
@@ -151,6 +154,7 @@ def _get_news_api(llm: BaseLanguageModel, **kwargs: Any) -> BaseTool:
         name="News API",
         description="Use this when you want to get information about the top headlines of current news stories. The input should be a question in natural language that this API can answer.",
         func=chain.run,
+        coroutine=chain.arun
     )
 
 
@@ -165,6 +169,7 @@ def _get_tmdb_api(llm: BaseLanguageModel, **kwargs: Any) -> BaseTool:
         name="TMDB API",
         description="Useful for when you want to get information from The Movie Database. The input should be a question in natural language that this API can answer.",
         func=chain.run,
+        coroutine=chain.arun
     )
 
 
@@ -179,6 +184,7 @@ def _get_podcast_api(llm: BaseLanguageModel, **kwargs: Any) -> BaseTool:
         name="Podcast API",
         description="Use the Listen Notes Podcast API to search all podcasts or episodes. The input should be a question in natural language that this API can answer.",
         func=chain.run,
+        coroutine=chain.arun
     )
 
 

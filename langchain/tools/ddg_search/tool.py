@@ -11,7 +11,7 @@ from langchain.callbacks.manager import (
 )
 from langchain.tools.base import BaseTool
 from langchain.utilities.duckduckgo_search import DuckDuckGoSearchAPIWrapper
-
+from langchain.sync_utils import make_async
 
 class DuckDuckGoSearchRun(BaseTool):
     """Tool that adds the capability to query the DuckDuckGo search API."""
@@ -40,7 +40,8 @@ class DuckDuckGoSearchRun(BaseTool):
         run_manager: Optional[AsyncCallbackManagerForToolRun] = None,
     ) -> str:
         """Use the tool asynchronously."""
-        raise NotImplementedError("DuckDuckGoSearch does not support async")
+        # raise NotImplementedError("DuckDuckGoSearch does not support async")
+        return await make_async(self.api_wrapper.run)(query)
 
 
 class DuckDuckGoSearchResults(BaseTool):
@@ -71,7 +72,8 @@ class DuckDuckGoSearchResults(BaseTool):
         run_manager: Optional[AsyncCallbackManagerForToolRun] = None,
     ) -> str:
         """Use the tool asynchronously."""
-        raise NotImplementedError("DuckDuckGoSearchResults does not support async")
+        # raise NotImplementedError("DuckDuckGoSearchResults does not support async")
+        return str(await make_async(self.api_wrapper.results)(query, self.num_results))
 
 
 def DuckDuckGoSearchTool(*args: Any, **kwargs: Any) -> DuckDuckGoSearchRun:

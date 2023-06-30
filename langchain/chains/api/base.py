@@ -77,6 +77,7 @@ class APIChain(Chain):
             api_docs=self.api_docs,
             callbacks=_run_manager.get_child(),
         )
+        api_url = api_url.split('\n')[0].replace('<|im_end|>', '')
         _run_manager.on_text(api_url, color="green", end="\n", verbose=self.verbose)
         api_url = api_url.strip()
         api_response = self.requests_wrapper.get(api_url)
@@ -104,6 +105,7 @@ class APIChain(Chain):
             api_docs=self.api_docs,
             callbacks=_run_manager.get_child(),
         )
+        api_url = api_url.split('\n')[0].replace('<|im_end|>', '')
         await _run_manager.on_text(
             api_url, color="green", end="\n", verbose=self.verbose
         )
