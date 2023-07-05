@@ -10,7 +10,7 @@ from typing import Any, Dict, List, Optional
 from pydantic import Extra, root_validator
 
 from langchain.base_language import BaseLanguageModel
-from langchain.callbacks.manager import CallbackManagerForChainRun
+from langchain.callbacks.manager import CallbackManagerForChainRun, AsyncCallbackManagerForChainRun
 from langchain.chains.base import Chain
 from langchain.chains.llm import LLMChain
 from langchain.chains.pal.colored_object_prompt import COLORED_OBJECT_PROMPT
@@ -82,6 +82,23 @@ class PALChain(Chain):
             stop=[self.stop], callbacks=_run_manager.get_child(), **inputs
         )
         _run_manager.on_text(code, color="green", end="\n", verbose=self.verbose)
+        repl = PythonREPL(_globals=self.python_globals, _locals=self.python_locals)
+        res = repl.run(code + f"\n{self.get_answer_expr}")
+        output = {self.output_key: res.strip()}
+        if self.return_intermediate_steps:
+            output["intermediate_steps"] = code
+        return output
+    
+    async def _acall(
+        self,
+        inputs: Dict[str, Any],
+        run_manager: Optional[AsyncCallbackManagerForChainRun] = None,
+    ) -> Dict[str, str]:
+        _run_manager = run_manager or AsyncCallbackManagerForChainRun.get_noop_manager()
+        code = await self.llm_chain.apredict(
+            stop=[self.stop], callbacks=_run_manager.get_child(), **inputs
+        )
+        await _run_manager.on_text(code, color="green", end="\n", verbose=self.verbose)
         repl = PythonREPL(_globals=self.python_globals, _locals=self.python_locals)
         res = repl.run(code + f"\n{self.get_answer_expr}")
         output = {self.output_key: res.strip()}

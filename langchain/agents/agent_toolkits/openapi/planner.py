@@ -6,6 +6,8 @@ from typing import Any, Callable, Dict, List, Optional
 
 import yaml
 from pydantic import Field
+from pydantic import BaseModel
+from langchain.callbacks.manager import Callbacks
 
 from langchain.agents.agent import AgentExecutor
 from langchain.agents.agent_toolkits.openapi.planner_prompt import (
@@ -38,6 +40,8 @@ from langchain.prompts.base import BasePromptTemplate
 from langchain.requests import RequestsWrapper
 from langchain.tools.base import BaseTool
 from langchain.tools.requests.tool import BaseRequestsTool
+from langchain.sync_utils import make_async
+from langchain.json_utils import maybe_fix_json
 
 #
 # Requests tools with LLM-instructed extraction of truncated responses.
@@ -71,19 +75,26 @@ class RequestsGetToolWithParsing(BaseRequestsTool, BaseTool):
     )
 
     def _run(self, text: str) -> str:
-        try:
-            data = json.loads(text)
-        except json.JSONDecodeError as e:
-            raise e
+        data = maybe_fix_json(text)
         data_params = data.get("params")
         response = self.requests_wrapper.get(data["url"], params=data_params)
         response = response[: self.response_length]
-        return self.llm_chain.predict(
-            response=response, instructions=data["output_instructions"]
-        ).strip()
+        # return self.llm_chain.predict(
+        #     response=response, instructions=data["output_instructions"]
+        # ).strip()
+        return response
 
     async def _arun(self, text: str) -> str:
-        raise NotImplementedError()
+        # raise NotImplementedError()
+        # return await make_async(self._run)(text)
+        data = maybe_fix_json(text)
+        data_params = data.get("params")
+        response = await self.requests_wrapper.aget(data["url"], params=data_params)
+        response = response[: self.response_length]
+        # return str(await self.llm_chain.apredict(
+        #     response=response, instructions=data["output_instructions"]
+        # )).strip()
+        return response
 
 
 class RequestsPostToolWithParsing(BaseRequestsTool, BaseTool):
@@ -96,18 +107,24 @@ class RequestsPostToolWithParsing(BaseRequestsTool, BaseTool):
     )
 
     def _run(self, text: str) -> str:
-        try:
-            data = json.loads(text)
-        except json.JSONDecodeError as e:
-            raise e
+        data = maybe_fix_json(text)
         response = self.requests_wrapper.post(data["url"], data["data"])
         response = response[: self.response_length]
-        return self.llm_chain.predict(
-            response=response, instructions=data["output_instructions"]
-        ).strip()
+        # return self.llm_chain.predict(
+        #     response=response, instructions=data["output_instructions"]
+        # ).strip()
+        return response
 
     async def _arun(self, text: str) -> str:
-        raise NotImplementedError()
+        # raise NotImplementedError()
+        # return await make_async(self._run)(text)
+        data = maybe_fix_json(text)
+        response = await self.requests_wrapper.apost(data["url"], None, json=data["data"])
+        response = response[: self.response_length]
+        # return str(await self.llm_chain.apredict(
+        #     response=response, instructions=data["output_instructions"]
+        # )).strip()
+        return response
 
 
 class RequestsPatchToolWithParsing(BaseRequestsTool, BaseTool):
@@ -120,18 +137,24 @@ class RequestsPatchToolWithParsing(BaseRequestsTool, BaseTool):
     )
 
     def _run(self, text: str) -> str:
-        try:
-            data = json.loads(text)
-        except json.JSONDecodeError as e:
-            raise e
+        data = maybe_fix_json(text)
         response = self.requests_wrapper.patch(data["url"], data["data"])
         response = response[: self.response_length]
-        return self.llm_chain.predict(
-            response=response, instructions=data["output_instructions"]
-        ).strip()
+        # return self.llm_chain.predict(
+        #     response=response, instructions=data["output_instructions"]
+        # ).strip()
+        return response
 
     async def _arun(self, text: str) -> str:
-        raise NotImplementedError()
+        # raise NotImplementedError()
+        # return await make_async(self._run)(text)
+        data = maybe_fix_json(text)
+        response = await self.requests_wrapper.apatch(data["url"], data["data"])
+        response = response[: self.response_length]
+        # return str(await self.llm_chain.apredict(
+        #     response=response, instructions=data["output_instructions"]
+        # )).strip()
+        return response
 
 
 class RequestsDeleteToolWithParsing(BaseRequestsTool, BaseTool):
@@ -144,25 +167,52 @@ class RequestsDeleteToolWithParsing(BaseRequestsTool, BaseTool):
     )
 
     def _run(self, text: str) -> str:
-        try:
-            data = json.loads(text)
-        except json.JSONDecodeError as e:
-            raise e
+        data = maybe_fix_json(text)
         response = self.requests_wrapper.delete(data["url"])
         response = response[: self.response_length]
-        return self.llm_chain.predict(
-            response=response, instructions=data["output_instructions"]
-        ).strip()
+        # return self.llm_chain.predict(
+        #     response=response, instructions=data["output_instructions"]
+        # ).strip()
+        return response
 
     async def _arun(self, text: str) -> str:
-        raise NotImplementedError()
+        # raise NotImplementedError()
+        # return await make_async(self._run)(text)
+        data = maybe_fix_json(text)
+        response = await self.requests_wrapper.adelete(data["url"])
+        response = response[: self.response_length]
+        # return str(await self.llm_chain.apredict(
+        #     response=response, instructions=data["output_instructions"]
+        # )).strip()
+        return response
 
+class ApiPlanner(BaseModel):
+    llm_chain: LLMChain
+    stop: Optional[List] = None
+
+    def plan(self, *args: Any, callbacks: Callbacks = None, **kwargs: Any) -> str:
+        """Given input, decided what to do."""
+        kwargs['query'] = args[0]
+        llm_response = self.llm_chain.run(stop=self.stop, callbacks=callbacks, **kwargs)
+        return llm_response
+
+    async def aplan(
+        self, *args: Any, callbacks: Callbacks = None, **kwargs: Any
+    ) -> str:
+        """Given input, decided what to do."""
+        kwargs['query'] = args[0]
+
+        llm_response = await self.llm_chain.arun(
+            stop=self.stop, callbacks=callbacks, **kwargs
+        )
+        return llm_response
 
 #
 # Orchestrator, planner, controller.
 #
 def _create_api_planner_tool(
-    api_spec: ReducedOpenAPISpec, llm: BaseLanguageModel
+    api_spec: ReducedOpenAPISpec, 
+    llm: BaseLanguageModel, 
 ) -> Tool:
     endpoint_descriptions = [
         f"{name} {description}" for name, description, _ in api_spec.endpoints
@@ -173,10 +223,12 @@ def _create_api_planner_tool(
         partial_variables={"endpoints": "- " + "- ".join(endpoint_descriptions)},
     )
     chain = LLMChain(llm=llm, prompt=prompt)
+    planner = ApiPlanner(llm_chain=chain, stop=['<END_OF_PLAN>'])
     tool = Tool(
         name=API_PLANNER_TOOL_NAME,
         description=API_PLANNER_TOOL_DESCRIPTION,
-        func=chain.run,
+        func=planner.plan,
+        coroutine=planner.aplan
     )
     return tool
 
@@ -247,11 +299,30 @@ def _create_api_controller_tool(
 
         agent = _create_api_controller_agent(base_url, docs_str, requests_wrapper, llm)
         return agent.run(plan_str)
+    
+    async def _acreate_and_run_api_controller_agent(plan_str: str) -> str:
+        pattern = r"\b(GET|POST|PATCH|DELETE)\s+(/\S+)*"
+        matches = re.findall(pattern, plan_str)
+        endpoint_names = [
+            "{method} {route}".format(method=method, route=route.split("?")[0])
+            for method, route in matches
+        ]
+        endpoint_docs_by_name = {name: docs for name, _, docs in api_spec.endpoints}
+        docs_str = ""
+        for endpoint_name in endpoint_names:
+            docs = endpoint_docs_by_name.get(endpoint_name)
+            if not docs:
+                raise ValueError(f"{endpoint_name} endpoint does not exist.")
+            docs_str += f"== Docs for {endpoint_name} == \n{yaml.dump(docs)}\n"
+
+        agent = _create_api_controller_agent(base_url, docs_str, requests_wrapper, llm)
+        return await agent.arun(plan_str)
 
     return Tool(
         name=API_CONTROLLER_TOOL_NAME,
         func=_create_and_run_api_controller_agent,
         description=API_CONTROLLER_TOOL_DESCRIPTION,
+        coroutine=_acreate_and_run_api_controller_agent
     )
 
 

@@ -9,11 +9,13 @@ You should:
 1) evaluate whether the user query can be solved by the API documentated below. If no, say why.
 2) if yes, generate a plan of API calls and say what they are doing step by step.
 3) If the plan includes a DELETE call, you should always return an ask from the User for authorization first unless the User has specifically asked to delete something.
+4) Don't make contradictory plans, such as when you make a plan and then regret that you can't make it.
 
 You should only use API endpoints documented below ("Endpoints you can use:").
 You can only use the DELETE tool if the User has specifically asked to delete something. Otherwise, you should return a request authorization from the User first.
 Some user queries can be resolved in a single API call, but some will require several API calls.
 The plan will be passed to an API controller that can format it into web requests and return the responses.
+At the end of plan, say '<END_OF_PLAN>'.
 
 ----
 
@@ -50,7 +52,10 @@ Plan: 1. GET /user to find the user's id
 3. Are you sure you want to delete your cart? 
 ----
 
-Here are endpoints you can use. Do not reference any of the endpoints above.
+Here are endpoints you can use. Do NOT reference any of the fake endpoints above.
+When the endpoint description says that user input is required, accurately output the user's query to the plan.
+
+Avaliable Endpoints:
 
 {endpoints}
 
@@ -63,33 +68,47 @@ API_PLANNER_TOOL_DESCRIPTION = f"Can be used to generate the right API calls to 
 
 # Execution.
 API_CONTROLLER_PROMPT = """You are an agent that gets a sequence of API calls and given their documentation, should execute them and return the final response.
-If you cannot complete them and run into issues, you should explain the issue. If you're able to resolve an API call, you can retry the API call. When interacting with API objects, you should extract ids for inputs to other API calls but ids and names for outputs returned to the User.
-
+If you cannot complete them and run into issues, you should explain the issue. If you're able to resolve an API call, you can retry the API call. 
 
 Here is documentation on the API:
 Base url: {api_url}
+
 Endpoints:
 {api_docs}
 
+The API that be executed requests against using the following tools must be in the above Endpoints document.
+Here are tools to execute requests against the API: 
 
-Here are tools to execute requests against the API: {tool_descriptions}
-
+TOOLS DESCRIPTIONS:
+{tool_descriptions}
 
 Starting below, you should follow this format:
 
 Plan: the plan of API calls to execute
 Thought: you should always think about what to do
-Action: the action to take, should be one of the tools [{tool_names}]
+Action: the action to take, MUST be one of the tools:
+
+TOOLS: 
+[{tool_names}]
+
 Action Input: the input to the action
 Observation: the output of the action
 ... (this Thought/Action/Action Input/Observation can repeat N times)
 Thought: I am finished executing the plan (or, I cannot finish executing the plan without knowing some other information.)
 Final Answer: the final output from executing the plan or missing information I'd need to re-plan correctly.
 
-
-Begin!
+Begin! 
 
 Plan: {input}
+
+Important Reminders: 
+
+1. If the plan has been executed successfully and returned a result, finish the plan and directly response based on the results. Some of the results may not always turn out to be correct and require you to make careful consideration in making decisions. Then please detail your workflow including the used steps and results for original plan in your friendly tone. Please filter out information that is not relevant to your plan. Your SHOULD tell me the complete path or urls of files in inference results if necessary.
+
+2. You MUST NOT to get image, audio, and video when you have got related urls.
+
+3. Just execute the plan, don't do redundant things.
+
 Thought:
 {agent_scratchpad}
 """
@@ -104,17 +123,19 @@ Some user queries can be resolved in a single API call, particularly if you can 
 You should always plan your API calls first, and then execute the plan second.
 If the plan includes a DELETE call, be sure to ask the User for authorization first unless the User has specifically asked to delete something.
 You should never return information without executing the api_controller tool.
+Copy raw user input to the planner.
 
+Here are the tools to plan and execute API requests: 
 
-Here are the tools to plan and execute API requests: {tool_descriptions}
-
+TOOLS:
+{tool_descriptions}
 
 Starting below, you should follow this format:
 
 User query: the query a User wants help with related to the API
 Thought: you should always think about what to do
-Action: the action to take, should be one of the tools [{tool_names}]
-Action Input: the input to the action
+Action: the action to take, MUST be one of the tools [{tool_names}]
+Action Input: the input to the action and copy of user input
 Observation: the result of the action
 ... (this Thought/Action/Action Input/Observation can repeat N times)
 Thought: I am finished executing a plan and have the information the user asked for or the data the user asked to create
@@ -125,7 +146,7 @@ Example:
 User query: can you add some trendy stuff to my shopping cart.
 Thought: I should plan API calls first.
 Action: api_planner
-Action Input: I need to find the right API calls to add trendy items to the users shopping cart
+Action Input: I need to find the right API calls to add trendy items to the users shopping cart. user input: "can you add some trendy stuff to my shopping cart".
 Observation: 1) GET /items with params 'trending' is 'True' to get trending item ids
 2) GET /user to get user
 3) POST /cart to post the trending items to the user's cart
@@ -139,7 +160,7 @@ Action Input: 1) GET /items params 'trending' is 'True' to get trending item ids
 Begin!
 
 User query: {input}
-Thought: I should generate a plan to help with this query and then copy that plan exactly to the controller.
+Thought: I should generate a plan to help with this query and then copy that plan and user query exactly to the controller.
 {agent_scratchpad}"""
 
 REQUESTS_GET_TOOL_DESCRIPTION = """Use this to GET content from a website.
@@ -149,12 +170,15 @@ The value of "params" should be a dict of the needed and available parameters fr
 If parameters are not needed, or not available, leave it empty.
 The value of "output_instructions" should be instructions on what information to extract from the response, 
 for example the id(s) for a resource(s) that the GET request fetches.
+Do NOT use this to get image/picture, audio, video and other multimedia content. 
+For example, the content of multimedia files whose path or url suffix is *.png, *.jpg, *.mp4, *.mav, *flac, etc. cannot be obtained by this method.
 """
 
 PARSING_GET_PROMPT = PromptTemplate(
     template="""Here is an API response:\n\n{response}\n\n====
-Your task is to extract some information according to these instructions: {instructions}
-When working with API objects, you should usually use ids over names.
+Your task is to extract some information directly according to these instructions: {instructions}.
+Your SHOULD tell me the complete path or urls and instruction's names in response in an orderly manner if necessary.
+No additional information unrelated to the above instructions is required.
 If the response indicates an error, you should instead output a summary of the error.
 
 Output:""",
@@ -170,8 +194,9 @@ Always use double quotes for strings in the json string."""
 
 PARSING_POST_PROMPT = PromptTemplate(
     template="""Here is an API response:\n\n{response}\n\n====
-Your task is to extract some information according to these instructions: {instructions}
-When working with API objects, you should usually use ids over names. Do not return any ids or names that are not in the response.
+Your task is to extract some information directly according to these instructions: {instructions}.
+Your SHOULD tell me the complete path or urls and instruction's names in response in an orderly manner if necessary.
+No additional information unrelated to the above instructions is required.
 If the response indicates an error, you should instead output a summary of the error.
 
 Output:""",
@@ -187,8 +212,9 @@ Always use double quotes for strings in the json string."""
 
 PARSING_PATCH_PROMPT = PromptTemplate(
     template="""Here is an API response:\n\n{response}\n\n====
-Your task is to extract some information according to these instructions: {instructions}
-When working with API objects, you should usually use ids over names. Do not return any ids or names that are not in the response.
+Your task is to extract some information directly according to these instructions: {instructions}.
+Your SHOULD tell me the complete path or urls and instruction's names in response in an orderly manner if necessary.
+No additional information unrelated to the above instructions is required.
 If the response indicates an error, you should instead output a summary of the error.
 
 Output:""",
@@ -204,8 +230,9 @@ ONLY USE THIS TOOL IF THE USER HAS SPECIFICALLY REQUESTED TO DELETE SOMETHING.""
 
 PARSING_DELETE_PROMPT = PromptTemplate(
     template="""Here is an API response:\n\n{response}\n\n====
-Your task is to extract some information according to these instructions: {instructions}
-When working with API objects, you should usually use ids over names. Do not return any ids or names that are not in the response.
+Your task is to extract some information directly according to these instructions: {instructions}.
+Your SHOULD tell me the complete path or urls and instruction's names in response in an orderly manner if necessary.
+No additional information unrelated to the above instructions is required.
 If the response indicates an error, you should instead output a summary of the error.
 
 Output:""",

@@ -13,7 +13,6 @@ from langchain.callbacks.manager import (
 )
 from langchain.tools.base import BaseTool
 
-
 class ApiConfig(BaseModel):
     type: str
     url: str
@@ -65,6 +64,7 @@ class AIPluginToolSchema(BaseModel):
 class AIPluginTool(BaseTool):
     plugin: AIPlugin
     api_spec: str
+    api_spec_dict: dict
     args_schema: Type[AIPluginToolSchema] = AIPluginToolSchema
 
     @classmethod
@@ -88,6 +88,7 @@ class AIPluginTool(BaseTool):
             description=description,
             plugin=plugin,
             api_spec=api_spec,
+            api_spec_dict=open_api_spec
         )
 
     def _run(
