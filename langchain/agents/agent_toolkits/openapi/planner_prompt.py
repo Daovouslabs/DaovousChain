@@ -139,7 +139,7 @@ Action Input: the input to the action and copy of user input
 Observation: the result of the action
 ... (this Thought/Action/Action Input/Observation can repeat N times)
 Thought: I am finished executing a plan and have the information the user asked for or the data the user asked to create
-Final Answer: the final output from executing the plan
+Final Answer: the final output from executing the plan. End at the end of Final Answer.
 
 
 Example:
