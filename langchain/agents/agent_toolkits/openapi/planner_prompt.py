@@ -27,9 +27,13 @@ GET /products/search search across products
 POST /users/{{id}}/cart to add products to a user's cart
 PATCH /users/{{id}}/cart to update a user's cart
 DELETE /users/{{id}}/cart to delete a user's cart
+POST /image/classify to classify the image, input is a image url
 
 User query: tell me a joke
 Plan: Sorry, this API's domain is shopping, not comedy.
+
+User query: http://a_image_url.jpg
+Plan: 1. POST /image/classify with the image url http://a_image_url.jpg as input to classify image
 
 User query: I want to buy a couch
 Plan: 1. GET /products with a query param to search for couches
@@ -53,7 +57,7 @@ Plan: 1. GET /user to find the user's id
 ----
 
 Here are endpoints you can use. Do NOT reference any of the fake endpoints above.
-When the endpoint description says that user input is required, accurately output the user's query to the plan.
+Carefully think about avaliable endpoints and user input, if user input is a necessary input for endpoints, fully incorporate user input into the plan.
 
 Avaliable Endpoints:
 
@@ -91,23 +95,21 @@ Action: the action to take, MUST be one of the tools:
 TOOLS: 
 [{tool_names}]
 
-Action Input: the input to the action
+Action Input: the input to the action, MUST be a valid json blob which can be parsed.
 Observation: the output of the action
 ... (this Thought/Action/Action Input/Observation can repeat N times)
 Thought: I am finished executing the plan (or, I cannot finish executing the plan without knowing some other information.)
-Final Answer: the final output from executing the plan or missing information I'd need to re-plan correctly.
+Final Answer: the final output from executing the plan or missing information I'd need to re-plan correctly. At the end of Final Answer, say '<|im_sep|>'.
 
 Begin! 
 
 Plan: {input}
 
 Important Reminders: 
-
 1. If the plan has been executed successfully and returned a result, finish the plan and directly response based on the results. Some of the results may not always turn out to be correct and require you to make careful consideration in making decisions. Then please detail your workflow including the used steps and results for original plan in your friendly tone. Please filter out information that is not relevant to your plan. Your SHOULD tell me the complete path or urls of files in inference results if necessary.
-
 2. You MUST NOT to get image, audio, and video when you have got related urls.
-
 3. Just execute the plan, don't do redundant things.
+4. The plan MUST be "Final Answer" or "Action", both cannot be present at the same time.
 
 Thought:
 {agent_scratchpad}
@@ -135,11 +137,11 @@ Starting below, you should follow this format:
 User query: the query a User wants help with related to the API
 Thought: you should always think about what to do
 Action: the action to take, MUST be one of the tools [{tool_names}]
-Action Input: the input to the action and copy of user input
+Action Input: the input to the action, include the copy of user input/query if necessary.
 Observation: the result of the action
 ... (this Thought/Action/Action Input/Observation can repeat N times)
 Thought: I am finished executing a plan and have the information the user asked for or the data the user asked to create
-Final Answer: the final output from executing the plan. End at the end of Final Answer.
+Final Answer: the final output from executing the plan. At the end of Final Answer, say '<|im_sep|>'.
 
 
 Example:
@@ -176,10 +178,13 @@ For example, the content of multimedia files whose path or url suffix is *.png, 
 
 PARSING_GET_PROMPT = PromptTemplate(
     template="""Here is an API response:\n\n{response}\n\n====
-Your task is to extract some information directly according to these instructions: {instructions}.
+Your task is to parse some information directly according to these instructions: {instructions}.
 Your SHOULD tell me the complete path or urls and instruction's names in response in an orderly manner if necessary.
 No additional information unrelated to the above instructions is required.
 If the response indicates an error, you should instead output a summary of the error.
+Donot generate any code.
+Don't make anything up out of thin air, follow instructions above exactly, or summarize error.
+At the end of parse, say '<END_OF_PARSE>'.
 
 Output:""",
     input_variables=["response", "instructions"],
@@ -194,10 +199,13 @@ Always use double quotes for strings in the json string."""
 
 PARSING_POST_PROMPT = PromptTemplate(
     template="""Here is an API response:\n\n{response}\n\n====
-Your task is to extract some information directly according to these instructions: {instructions}.
+Your task is to parse some information directly according to these instructions: {instructions}.
 Your SHOULD tell me the complete path or urls and instruction's names in response in an orderly manner if necessary.
 No additional information unrelated to the above instructions is required.
 If the response indicates an error, you should instead output a summary of the error.
+Donot generate any code.
+Don't make anything up out of thin air, follow instructions above exactly, or summarize error.
+At the end of parse, say '<END_OF_PARSE>'.
 
 Output:""",
     input_variables=["response", "instructions"],
@@ -212,10 +220,13 @@ Always use double quotes for strings in the json string."""
 
 PARSING_PATCH_PROMPT = PromptTemplate(
     template="""Here is an API response:\n\n{response}\n\n====
-Your task is to extract some information directly according to these instructions: {instructions}.
+Your task is to parse some information directly according to these instructions: {instructions}.
 Your SHOULD tell me the complete path or urls and instruction's names in response in an orderly manner if necessary.
 No additional information unrelated to the above instructions is required.
 If the response indicates an error, you should instead output a summary of the error.
+Donot generate any code.
+Don't make anything up out of thin air, follow instructions above exactly, or summarize error.
+At the end of parse, say '<END_OF_PARSE>'.
 
 Output:""",
     input_variables=["response", "instructions"],
@@ -230,10 +241,13 @@ ONLY USE THIS TOOL IF THE USER HAS SPECIFICALLY REQUESTED TO DELETE SOMETHING.""
 
 PARSING_DELETE_PROMPT = PromptTemplate(
     template="""Here is an API response:\n\n{response}\n\n====
-Your task is to extract some information directly according to these instructions: {instructions}.
+Your task is to parse some information directly according to these instructions: {instructions}.
 Your SHOULD tell me the complete path or urls and instruction's names in response in an orderly manner if necessary.
 No additional information unrelated to the above instructions is required.
 If the response indicates an error, you should instead output a summary of the error.
+Donot generate any code.
+Don't make anything up out of thin air, follow instructions above exactly, or summarize error.
+At the end of parse, say '<END_OF_PARSE>'.
 
 Output:""",
     input_variables=["response", "instructions"],

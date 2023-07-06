@@ -42,7 +42,7 @@ from langchain.tools.base import BaseTool
 from langchain.tools.requests.tool import BaseRequestsTool
 from langchain.sync_utils import make_async
 from langchain.json_utils import maybe_fix_json
-
+from langchain.media_utils import send_medias_message, is_media
 #
 # Requests tools with LLM-instructed extraction of truncated responses.
 #
@@ -88,12 +88,17 @@ class RequestsGetToolWithParsing(BaseRequestsTool, BaseTool):
         # raise NotImplementedError()
         # return await make_async(self._run)(text)
         data = maybe_fix_json(text)
+        if is_media(data['url']):
+            return f"Do not need to get the content of {data['url']}, itself is the result."
         data_params = data.get("params")
         response = await self.requests_wrapper.aget(data["url"], params=data_params)
         response = response[: self.response_length]
-        # return str(await self.llm_chain.apredict(
-        #     response=response, instructions=data["output_instructions"]
-        # )).strip()
+
+        response = str(await self.llm_chain.apredict(
+            response=response, instructions=data["output_instructions"], stop=['<END_OF_PARSE>']
+        )).strip()
+        await send_medias_message(response)
+
         return response
 
 
@@ -119,11 +124,16 @@ class RequestsPostToolWithParsing(BaseRequestsTool, BaseTool):
         # raise NotImplementedError()
         # return await make_async(self._run)(text)
         data = maybe_fix_json(text)
+        if is_media(data['url']):
+            return f"Do not need to get the content of {data['url']}, itself is the result."
         response = await self.requests_wrapper.apost(data["url"], None, json=data["data"])
         response = response[: self.response_length]
-        # return str(await self.llm_chain.apredict(
-        #     response=response, instructions=data["output_instructions"]
-        # )).strip()
+
+        response = str(await self.llm_chain.apredict(
+            response=response, instructions=data["output_instructions"], stop=['<END_OF_PARSE>']
+        )).strip()
+        await send_medias_message(response)
+
         return response
 
 
@@ -149,11 +159,16 @@ class RequestsPatchToolWithParsing(BaseRequestsTool, BaseTool):
         # raise NotImplementedError()
         # return await make_async(self._run)(text)
         data = maybe_fix_json(text)
+        if is_media(data['url']):
+            return f"Do not need to get the content of {data['url']}, itself is the result."
         response = await self.requests_wrapper.apatch(data["url"], data["data"])
         response = response[: self.response_length]
-        # return str(await self.llm_chain.apredict(
-        #     response=response, instructions=data["output_instructions"]
-        # )).strip()
+
+        response = str(await self.llm_chain.apredict(
+            response=response, instructions=data["output_instructions"], stop=['<END_OF_PARSE>']
+        )).strip()
+        await send_medias_message(response)
+
         return response
 
 
@@ -179,11 +194,16 @@ class RequestsDeleteToolWithParsing(BaseRequestsTool, BaseTool):
         # raise NotImplementedError()
         # return await make_async(self._run)(text)
         data = maybe_fix_json(text)
+        if is_media(data['url']):
+            return f"Do not need to get the content of {data['url']}, itself is the result."
         response = await self.requests_wrapper.adelete(data["url"])
         response = response[: self.response_length]
-        # return str(await self.llm_chain.apredict(
-        #     response=response, instructions=data["output_instructions"]
-        # )).strip()
+
+        response = str(await self.llm_chain.apredict(
+            response=response, instructions=data["output_instructions"], stop=['<END_OF_PARSE>']
+        )).strip()
+        await send_medias_message(response)
+
         return response
 
 class ApiPlanner(BaseModel):
