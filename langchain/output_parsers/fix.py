@@ -37,6 +37,7 @@ class OutputFixingParser(BaseOutputParser[T]):
             )
             parsed_completion = self.parser.parse(new_completion)
 
+        print(parsed_completion)
         return parsed_completion
 
     def get_format_instructions(self) -> str:

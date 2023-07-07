@@ -10,6 +10,7 @@ You should:
 2) if yes, generate a plan of API calls and say what they are doing step by step.
 3) If the plan includes a DELETE call, you should always return an ask from the User for authorization first unless the User has specifically asked to delete something.
 4) Don't make contradictory plans, such as when you make a plan and then regret that you can't make it.
+5) Don't interactive between "User query" with "Plan" multiple time.
 
 You should only use API endpoints documented below ("Endpoints you can use:").
 You can only use the DELETE tool if the User has specifically asked to delete something. Otherwise, you should return a request authorization from the User first.
@@ -19,7 +20,7 @@ At the end of plan, say '<END_OF_PLAN>'.
 
 ----
 
-Here are some examples:
+Here are some fake examples:
 
 Fake endpoints for examples:
 GET /user to get information about the current user
@@ -56,7 +57,7 @@ Plan: 1. GET /user to find the user's id
 3. Are you sure you want to delete your cart? 
 ----
 
-Here are endpoints you can use. Do NOT reference any of the fake endpoints above.
+Here are endpoints you can use. Do NOT reference any of the fake endpoints mentioned above.
 Carefully think about avaliable endpoints and user input, if user input is a necessary input for endpoints, fully incorporate user input into the plan.
 
 Avaliable Endpoints:
@@ -90,9 +91,9 @@ Starting below, you should follow this format:
 
 Plan: the plan of API calls to execute
 Thought: you should always think about what to do
-Action: the action to take, MUST be one of the tools:
+Action: the action to take, which can not be empty and MUST MUST be one of the tools:
 
-TOOLS: 
+tools: 
 [{tool_names}]
 
 Action Input: the input to the action, MUST be a valid json blob which can be parsed.
@@ -109,7 +110,7 @@ Important Reminders:
 1. If the plan has been executed successfully and returned a result, finish the plan and directly response based on the results. Some of the results may not always turn out to be correct and require you to make careful consideration in making decisions. Then please detail your workflow including the used steps and results for original plan in your friendly tone. Please filter out information that is not relevant to your plan. Your SHOULD tell me the complete path or urls of files in inference results if necessary.
 2. You MUST NOT to get image, audio, and video when you have got related urls.
 3. Just execute the plan, don't do redundant things.
-4. The plan MUST be "Final Answer" or "Action", both cannot be present at the same time.
+4. Your SHOULD tell me the complete path or urls of files in inference results if necessary.
 
 Thought:
 {agent_scratchpad}
@@ -178,10 +179,10 @@ For example, the content of multimedia files whose path or url suffix is *.png, 
 
 PARSING_GET_PROMPT = PromptTemplate(
     template="""Here is an API response:\n\n{response}\n\n====
-Your task is to parse some information directly according to these instructions: {instructions}.
-Your SHOULD tell me the complete path or urls and instruction's names in response in an orderly manner if necessary.
+Your task is to parse and summarize some information directly according to these instructions: {instructions}.
+Your SHOULD tell me the information and instruction's names in response in an orderly manner if necessary.
 No additional information unrelated to the above instructions is required.
-If the response indicates an error, you should instead output a summary of the error.
+If the API response mentioned above indicates an error, you should instead output a summary of the error.
 Donot generate any code.
 Don't make anything up out of thin air, follow instructions above exactly, or summarize error.
 At the end of parse, say '<END_OF_PARSE>'.
@@ -199,10 +200,10 @@ Always use double quotes for strings in the json string."""
 
 PARSING_POST_PROMPT = PromptTemplate(
     template="""Here is an API response:\n\n{response}\n\n====
-Your task is to parse some information directly according to these instructions: {instructions}.
-Your SHOULD tell me the complete path or urls and instruction's names in response in an orderly manner if necessary.
+Your task is to parse and summarize some information directly according to these instructions: {instructions}.
+Your SHOULD tell me the information and instruction's names in response in an orderly manner if necessary.
 No additional information unrelated to the above instructions is required.
-If the response indicates an error, you should instead output a summary of the error.
+If the API response mentioned above indicates an error, you should instead output a summary of the error.
 Donot generate any code.
 Don't make anything up out of thin air, follow instructions above exactly, or summarize error.
 At the end of parse, say '<END_OF_PARSE>'.
@@ -220,10 +221,10 @@ Always use double quotes for strings in the json string."""
 
 PARSING_PATCH_PROMPT = PromptTemplate(
     template="""Here is an API response:\n\n{response}\n\n====
-Your task is to parse some information directly according to these instructions: {instructions}.
-Your SHOULD tell me the complete path or urls and instruction's names in response in an orderly manner if necessary.
+Your task is to parse and summarize some information directly according to these instructions: {instructions}.
+Your SHOULD tell me the information and instruction's names in response in an orderly manner if necessary.
 No additional information unrelated to the above instructions is required.
-If the response indicates an error, you should instead output a summary of the error.
+If the API response mentioned above indicates an error, you should instead output a summary of the error.
 Donot generate any code.
 Don't make anything up out of thin air, follow instructions above exactly, or summarize error.
 At the end of parse, say '<END_OF_PARSE>'.
@@ -241,10 +242,10 @@ ONLY USE THIS TOOL IF THE USER HAS SPECIFICALLY REQUESTED TO DELETE SOMETHING.""
 
 PARSING_DELETE_PROMPT = PromptTemplate(
     template="""Here is an API response:\n\n{response}\n\n====
-Your task is to parse some information directly according to these instructions: {instructions}.
-Your SHOULD tell me the complete path or urls and instruction's names in response in an orderly manner if necessary.
+Your task is to parse and summarize some information directly according to these instructions: {instructions}.
+Your SHOULD tell me the information and instruction's names in response in an orderly manner if necessary.
 No additional information unrelated to the above instructions is required.
-If the response indicates an error, you should instead output a summary of the error.
+If the API response mentioned above indicates an error, you should instead output a summary of the error.
 Donot generate any code.
 Don't make anything up out of thin air, follow instructions above exactly, or summarize error.
 At the end of parse, say '<END_OF_PARSE>'.
