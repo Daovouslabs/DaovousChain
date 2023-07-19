@@ -48,7 +48,7 @@ class GoogleSearchAPIWrapper(BaseModel):
     search_engine: Any  #: :meta private:
     google_api_key: Optional[str] = None
     google_cse_id: Optional[str] = None
-    k: int = 10
+    k: int = 3
     siterestrict: bool = False
 
     class Config:
@@ -90,15 +90,14 @@ class GoogleSearchAPIWrapper(BaseModel):
 
     def run(self, query: str) -> str:
         """Run query through GoogleSearch and parse result."""
-        snippets = []
         results = self._google_search_results(query, num=self.k)
         if len(results) == 0:
             return "No good Google Search Result was found"
-        for result in results:
-            if "snippet" in result:
-                snippets.append(result["snippet"])
+        res = f"About query: '{query}', {len(results)} search results were found:\n"
+        for i, result in enumerate(results):
+            res += f"Search Result {i}:\ntitle: {result.get('title', '')}\nlink: {result.get('link', '')}\nsnippet:{result.get('snippet', '')}\n\n"
 
-        return " ".join(snippets)
+        return res
 
     def results(
         self,

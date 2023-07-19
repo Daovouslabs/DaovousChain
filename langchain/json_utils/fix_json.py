@@ -1,14 +1,14 @@
 import json
+import re
+
 
 def maybe_fix_json(text):
 	text = text.strip()
 	try:
 		data = json.loads(text)
 	except json.JSONDecodeError as e:
-		if text.startswith('```'):
-			text = text[3:]
-		if text.endswith('```'):
-			text = text[:-3]
+		json_match = re.search(r"\{(.*?)\}", text, re.DOTALL)
+		text = json_match.group(0).strip()
 		try:
 			data = json.loads(text)
 		except json.JSONDecodeError as e2:

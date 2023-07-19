@@ -637,9 +637,7 @@ class ApiTool(BaseTool):
         args, kwargs = super()._to_args_and_kwargs(tool_input)
         # For backwards compatibility. The tool must be run with a single input
         all_args = list(args) + list(kwargs.values())
-        if len(all_args) != 1:
-            return (f'{args}, {kwargs}', ), {}
-        return tuple(all_args), {}
+        return (f'{args}, {kwargs}', ), {}
 
     def _run(
         self,
@@ -670,8 +668,6 @@ class ApiTool(BaseTool):
             new_argument_supported = signature(self.coroutine).parameters.get(
                 "callbacks"
             )
-            print("$$$$")
-            print(args)
             return (
                 await self.coroutine(
                     *args,

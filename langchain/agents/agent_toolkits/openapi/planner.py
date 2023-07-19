@@ -30,6 +30,7 @@ from langchain.agents.agent_toolkits.openapi.planner_prompt import (
 from langchain.agents.agent_toolkits.openapi.spec import ReducedOpenAPISpec
 from langchain.agents.mrkl.base import ZeroShotAgent
 from langchain.agents.tools import Tool
+from langchain.base_language import BaseLanguageModel
 from langchain.callbacks.base import BaseCallbackManager
 from langchain.chains.llm import LLMChain
 from langchain.llms.openai import OpenAI
@@ -37,7 +38,6 @@ from langchain.memory import ReadOnlySharedMemory
 from langchain.prompts import PromptTemplate
 from langchain.requests import RequestsWrapper
 from langchain.schema import BasePromptTemplate
-from langchain.schema.language_model import BaseLanguageModel
 from langchain.tools.base import BaseTool
 from langchain.tools.requests.tool import BaseRequestsTool
 from langchain.sync_utils import make_async
@@ -66,8 +66,23 @@ def _get_default_llm_chain_factory(
     return partial(_get_default_llm_chain, prompt)
 
 
+def _build_output_instructions(input: str):
+    try:
+        if isinstance(input, dict):
+            json_obj = input
+            res = ", ".join(json_obj.keys())
+        elif isinstance(input, str):
+            json_obj = json.loads(input)
+            res = ", ".join(json_obj.keys())
+        elif isinstance(input, (list, tuple)):
+            res = ", ".join(input)
+    except json.JSONDecodeError as e:
+        res = input
+    return res
+
+
 class RequestsGetToolWithParsing(BaseRequestsTool, BaseTool):
-    name = "requests_get"
+    name = "requests.get"
     description = REQUESTS_GET_TOOL_DESCRIPTION
     response_length: Optional[int] = MAX_RESPONSE_LENGTH
     llm_chain: LLMChain = Field(
@@ -95,7 +110,7 @@ class RequestsGetToolWithParsing(BaseRequestsTool, BaseTool):
         response = response[: self.response_length]
 
         response = str(await self.llm_chain.apredict(
-            response=response, instructions=data["output_instructions"], stop=['<END_OF_PARSE>']
+            response=response, instructions=_build_output_instructions(data["output_instructions"]), stop=['<END_OF_PARSE>']
         )).strip()
         await send_medias_message(response)
 
@@ -103,7 +118,7 @@ class RequestsGetToolWithParsing(BaseRequestsTool, BaseTool):
 
 
 class RequestsPostToolWithParsing(BaseRequestsTool, BaseTool):
-    name = "requests_post"
+    name = "requests.post"
     description = REQUESTS_POST_TOOL_DESCRIPTION
 
     response_length: Optional[int] = MAX_RESPONSE_LENGTH
@@ -130,7 +145,7 @@ class RequestsPostToolWithParsing(BaseRequestsTool, BaseTool):
         response = response[: self.response_length]
 
         response = str(await self.llm_chain.apredict(
-            response=response, instructions=data["output_instructions"], stop=['<END_OF_PARSE>']
+            response=response, instructions=_build_output_instructions(data["output_instructions"]), stop=['<END_OF_PARSE>']
         )).strip()
         await send_medias_message(response)
 
@@ -138,7 +153,7 @@ class RequestsPostToolWithParsing(BaseRequestsTool, BaseTool):
 
 
 class RequestsPatchToolWithParsing(BaseRequestsTool, BaseTool):
-    name = "requests_patch"
+    name = "requests.patch"
     description = REQUESTS_PATCH_TOOL_DESCRIPTION
 
     response_length: Optional[int] = MAX_RESPONSE_LENGTH
@@ -165,7 +180,7 @@ class RequestsPatchToolWithParsing(BaseRequestsTool, BaseTool):
         response = response[: self.response_length]
 
         response = str(await self.llm_chain.apredict(
-            response=response, instructions=data["output_instructions"], stop=['<END_OF_PARSE>']
+            response=response, instructions=_build_output_instructions(data["output_instructions"]), stop=['<END_OF_PARSE>']
         )).strip()
         await send_medias_message(response)
 
@@ -173,7 +188,7 @@ class RequestsPatchToolWithParsing(BaseRequestsTool, BaseTool):
 
 
 class RequestsDeleteToolWithParsing(BaseRequestsTool, BaseTool):
-    name = "requests_delete"
+    name = "requests.delete"
     description = REQUESTS_DELETE_TOOL_DESCRIPTION
 
     response_length: Optional[int] = MAX_RESPONSE_LENGTH
@@ -200,7 +215,7 @@ class RequestsDeleteToolWithParsing(BaseRequestsTool, BaseTool):
         response = response[: self.response_length]
 
         response = str(await self.llm_chain.apredict(
-            response=response, instructions=data["output_instructions"], stop=['<END_OF_PARSE>']
+            response=response, instructions=_build_output_instructions(data["output_instructions"]), stop=['<END_OF_PARSE>']
         )).strip()
         await send_medias_message(response)
 

@@ -91,10 +91,9 @@ Starting below, you should follow this format:
 
 Plan: the plan of API calls to execute
 Thought: you should always think about what to do
-Action: the action to take, which can not be empty and MUST MUST be one of the tools:
+Action: the action to take, which can not be empty and MUST be one of the tools: 
 
-tools: 
-[{tool_names}]
+tools: {tool_names}
 
 Action Input: the input to the action, MUST be a valid json blob which can be parsed.
 Observation: the output of the action
@@ -111,6 +110,7 @@ Important Reminders:
 2. You MUST NOT to get image, audio, and video when you have got related urls.
 3. Just execute the plan, don't do redundant things.
 4. Your SHOULD tell me the complete path or urls of files in inference results if necessary.
+5. "Action" Must be one of tools mentioned above.
 
 Thought:
 {agent_scratchpad}
@@ -171,7 +171,7 @@ Input to the tool should be a json string with 3 keys: "url", "params" and "outp
 The value of "url" should be a string. 
 The value of "params" should be a dict of the needed and available parameters from the OpenAPI spec related to the endpoint. 
 If parameters are not needed, or not available, leave it empty.
-The value of "output_instructions" should be instructions on what information to extract from the response, 
+The value of "output_instructions" should be instructions list on what information to extract from the response, for example ["generated image", "answer", "generated text", "generated audio"].
 for example the id(s) for a resource(s) that the GET request fetches.
 Do NOT use this to get image/picture, audio, video and other multimedia content. 
 For example, the content of multimedia files whose path or url suffix is *.png, *.jpg, *.mp4, *.mav, *flac, etc. cannot be obtained by this method.
@@ -179,12 +179,12 @@ For example, the content of multimedia files whose path or url suffix is *.png, 
 
 PARSING_GET_PROMPT = PromptTemplate(
     template="""Here is an API response:\n\n{response}\n\n====
-Your task is to parse and summarize some information directly according to these instructions: {instructions}.
-Your SHOULD tell me the information and instruction's names in response in an orderly manner if necessary.
+Your task is to extract {instructions} from API response mentioned above in your friendly tone and human-readable typography.
 No additional information unrelated to the above instructions is required.
 If the API response mentioned above indicates an error, you should instead output a summary of the error.
 Donot generate any code.
 Don't make anything up out of thin air, follow instructions above exactly, or summarize error.
+When a url is included in the results, please describe what it is, to help the next task better understand the input.
 At the end of parse, say '<END_OF_PARSE>'.
 
 Output:""",
@@ -195,17 +195,17 @@ REQUESTS_POST_TOOL_DESCRIPTION = """Use this when you want to POST to a website.
 Input to the tool should be a json string with 3 keys: "url", "data", and "output_instructions".
 The value of "url" should be a string.
 The value of "data" should be a dictionary of key-value pairs you want to POST to the url.
-The value of "output_instructions" should be instructions on what information to extract from the response, for example the id(s) for a resource(s) that the POST request creates.
+The value of "output_instructions" should be instructions list on what information to extract from the response, for example ["generated image", "answer", "generated text", "generated audio"].
 Always use double quotes for strings in the json string."""
 
 PARSING_POST_PROMPT = PromptTemplate(
     template="""Here is an API response:\n\n{response}\n\n====
-Your task is to parse and summarize some information directly according to these instructions: {instructions}.
-Your SHOULD tell me the information and instruction's names in response in an orderly manner if necessary.
+Your task is to extract {instructions} from API response mentioned above in your friendly tone and human-readable typography.
 No additional information unrelated to the above instructions is required.
 If the API response mentioned above indicates an error, you should instead output a summary of the error.
 Donot generate any code.
 Don't make anything up out of thin air, follow instructions above exactly, or summarize error.
+When a url is included in the results, please describe what it is, to help the next task better understand the input.
 At the end of parse, say '<END_OF_PARSE>'.
 
 Output:""",
@@ -216,17 +216,17 @@ REQUESTS_PATCH_TOOL_DESCRIPTION = """Use this when you want to PATCH content on 
 Input to the tool should be a json string with 3 keys: "url", "data", and "output_instructions".
 The value of "url" should be a string.
 The value of "data" should be a dictionary of key-value pairs of the body params available in the OpenAPI spec you want to PATCH the content with at the url.
-The value of "output_instructions" should be instructions on what information to extract from the response, for example the id(s) for a resource(s) that the PATCH request creates.
+The value of "output_instructions" should be instructions list on what information to extract from the response, for example ["generated image", "answer", "generated text", "generated audio"].
 Always use double quotes for strings in the json string."""
 
 PARSING_PATCH_PROMPT = PromptTemplate(
     template="""Here is an API response:\n\n{response}\n\n====
-Your task is to parse and summarize some information directly according to these instructions: {instructions}.
-Your SHOULD tell me the information and instruction's names in response in an orderly manner if necessary.
+Your task is to extract {instructions} from API response mentioned above in your friendly tone and human-readable typography.
 No additional information unrelated to the above instructions is required.
 If the API response mentioned above indicates an error, you should instead output a summary of the error.
 Donot generate any code.
 Don't make anything up out of thin air, follow instructions above exactly, or summarize error.
+When a url is included in the results, please describe what it is, to help the next task better understand the input.
 At the end of parse, say '<END_OF_PARSE>'.
 
 Output:""",
@@ -236,18 +236,18 @@ Output:""",
 REQUESTS_DELETE_TOOL_DESCRIPTION = """ONLY USE THIS TOOL WHEN THE USER HAS SPECIFICALLY REQUESTED TO DELETE CONTENT FROM A WEBSITE.
 Input to the tool should be a json string with 2 keys: "url", and "output_instructions".
 The value of "url" should be a string.
-The value of "output_instructions" should be instructions on what information to extract from the response, for example the id(s) for a resource(s) that the DELETE request creates.
+The value of "output_instructions" should be instructions list on what information to extract from the response, for example ["generated image", "answer", "generated text", "generated audio"].
 Always use double quotes for strings in the json string.
 ONLY USE THIS TOOL IF THE USER HAS SPECIFICALLY REQUESTED TO DELETE SOMETHING."""
 
 PARSING_DELETE_PROMPT = PromptTemplate(
     template="""Here is an API response:\n\n{response}\n\n====
-Your task is to parse and summarize some information directly according to these instructions: {instructions}.
-Your SHOULD tell me the information and instruction's names in response in an orderly manner if necessary.
+Your task is to extract {instructions} from API response mentioned above in your friendly tone and human-readable typography.
 No additional information unrelated to the above instructions is required.
 If the API response mentioned above indicates an error, you should instead output a summary of the error.
 Donot generate any code.
 Don't make anything up out of thin air, follow instructions above exactly, or summarize error.
+When a url is included in the results, please describe what it is, to help the next task better understand the input.
 At the end of parse, say '<END_OF_PARSE>'.
 
 Output:""",
