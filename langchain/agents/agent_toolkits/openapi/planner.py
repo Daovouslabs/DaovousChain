@@ -141,7 +141,7 @@ class RequestsPostToolWithParsing(BaseRequestsTool, BaseTool):
         data = maybe_fix_json(text)
         if is_media(data['url']):
             return f"Do not need to get the content of {data['url']}, itself is the result."
-        response = await self.requests_wrapper.apost(data["url"], None, json=data["data"])
+        response = await self.requests_wrapper.apost(data["url"], data["data"])
         response = response[: self.response_length]
 
         response = str(await self.llm_chain.apredict(
