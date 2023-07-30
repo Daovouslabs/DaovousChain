@@ -1,10 +1,8 @@
 """Base implementation for tools or skills."""
 from __future__ import annotations
 
-import asyncio
 import warnings
-from abc import abstractmethod
-from functools import partial
+from abc import ABC, abstractmethod
 from inspect import signature
 from typing import Any, Awaitable, Callable, Dict, List, Optional, Tuple, Type, Union
 
@@ -26,7 +24,6 @@ from langchain.callbacks.manager import (
     CallbackManagerForToolRun,
     Callbacks,
 )
-from langchain.schema.runnable import Runnable, RunnableConfig
 
 
 class SchemaAnnotationError(TypeError):
@@ -132,7 +129,7 @@ class ToolException(Exception):
     pass
 
 
-class BaseTool(BaseModel, Runnable[Union[str, Dict], Any], metaclass=ToolMetaclass):
+class BaseTool(ABC, BaseModel, metaclass=ToolMetaclass):
     """Interface LangChain tools must implement."""
 
     name: str
@@ -194,32 +191,6 @@ class BaseTool(BaseModel, Runnable[Union[str, Dict], Any], metaclass=ToolMetacla
             schema = create_schema_from_function(self.name, self._run)
             return schema.schema()["properties"]
 
-    # --- Runnable ---
-
-    def invoke(
-        self,
-        input: Union[str, Dict],
-        config: Optional[RunnableConfig] = None,
-        **kwargs: Any,
-    ) -> Any:
-        config = config or {}
-        return self.run(input, **config, **kwargs)
-
-    async def ainvoke(
-        self,
-        input: Union[str, Dict],
-        config: Optional[RunnableConfig] = None,
-        **kwargs: Any,
-    ) -> Any:
-        if type(self)._arun == BaseTool._arun:
-            # If the tool does not implement async, fall back to default implementation
-            return super().ainvoke(input, config, **kwargs)
-
-        config = config or {}
-        return await self.arun(input, **config, **kwargs)
-
-    # --- Tool ---
-
     def _parse_input(
         self,
         tool_input: Union[str, Dict],
@@ -260,6 +231,7 @@ class BaseTool(BaseModel, Runnable[Union[str, Dict], Any], metaclass=ToolMetacla
         to child implementations to enable tracing,
         """
 
+    @abstractmethod
     async def _arun(
         self,
         *args: Any,
@@ -270,7 +242,6 @@ class BaseTool(BaseModel, Runnable[Union[str, Dict], Any], metaclass=ToolMetacla
         Add run_manager: Optional[AsyncCallbackManagerForToolRun] = None
         to child implementations to enable tracing,
         """
-        raise NotImplementedError()
 
     def _to_args_and_kwargs(self, tool_input: Union[str, Dict]) -> Tuple[Tuple, Dict]:
         # For backwards compatibility, if run_input is a string,
@@ -440,24 +411,6 @@ class Tool(BaseTool):
     coroutine: Optional[Callable[..., Awaitable[str]]] = None
     """The asynchronous version of the function."""
 
-    # --- Runnable ---
-
-    async def ainvoke(
-        self,
-        input: Union[str, Dict],
-        config: Optional[RunnableConfig] = None,
-        **kwargs: Any,
-    ) -> Any:
-        if not self.coroutine:
-            # If the tool does not implement async, fall back to default implementation
-            return await asyncio.get_running_loop().run_in_executor(
-                None, partial(self.invoke, input, config, **kwargs)
-            )
-
-        return super().ainvoke(input, config, **kwargs)
-
-    # --- Tool ---
-
     @property
     def args(self) -> dict:
         """The tool's input arguments."""
@@ -560,24 +513,6 @@ class StructuredTool(BaseTool):
     coroutine: Optional[Callable[..., Awaitable[Any]]] = None
     """The asynchronous version of the function."""
 
-    # --- Runnable ---
-
-    async def ainvoke(
-        self,
-        input: Union[str, Dict],
-        config: Optional[RunnableConfig] = None,
-        **kwargs: Any,
-    ) -> Any:
-        if not self.coroutine:
-            # If the tool does not implement async, fall back to default implementation
-            return await asyncio.get_running_loop().run_in_executor(
-                None, partial(self.invoke, input, config, **kwargs)
-            )
-
-        return super().ainvoke(input, config, **kwargs)
-
-    # --- Tool ---
-
     @property
     def args(self) -> dict:
         """The tool's input arguments."""
@@ -679,6 +614,99 @@ class StructuredTool(BaseTool):
             **kwargs,
         )
 
+class ApiTool(BaseTool):
+    """Tool that takes in function or coroutine directly."""
+
+    description: str = ""
+    func: Callable[..., str]
+    """The function to run when the tool is called."""
+    coroutine: Optional[Callable[..., Awaitable[str]]] = None
+    """The asynchronous version of the function."""
+
+    @property
+    def args(self) -> dict:
+        """The tool's input arguments."""
+        if self.args_schema is not None:
+            return self.args_schema.schema()["properties"]
+        # For backwards compatibility, if the function signature is ambiguous,
+        # assume it takes a single string input.
+        return {"tool_input": {"type": "string"}}
+
+    def _to_args_and_kwargs(self, tool_input: Union[str, Dict]) -> Tuple[Tuple, Dict]:
+        """Convert tool input to pydantic model."""
+        args, kwargs = super()._to_args_and_kwargs(tool_input)
+        # For backwards compatibility. The tool must be run with a single input
+        all_args = list(args) + list(kwargs.values())
+        return (f'{args}, {kwargs}', ), {}
+
+    def _run(
+        self,
+        *args: Any,
+        run_manager: Optional[CallbackManagerForToolRun] = None,
+        **kwargs: Any,
+    ) -> Any:
+        """Use the tool."""
+        new_argument_supported = signature(self.func).parameters.get("callbacks")
+        return (
+            self.func(
+                *args,
+                callbacks=run_manager.get_child() if run_manager else None,
+                **kwargs,
+            )
+            if new_argument_supported
+            else self.func(*args, **kwargs)
+        )
+
+    async def _arun(
+        self,
+        *args: Any,
+        run_manager: Optional[AsyncCallbackManagerForToolRun] = None,
+        **kwargs: Any,
+    ) -> Any:
+        """Use the tool asynchronously."""
+        if self.coroutine:
+            new_argument_supported = signature(self.coroutine).parameters.get(
+                "callbacks"
+            )
+            return (
+                await self.coroutine(
+                    *args,
+                    callbacks=run_manager.get_child() if run_manager else None,
+                    **kwargs,
+                )
+                if new_argument_supported
+                else await self.coroutine(*args, **kwargs)
+            )
+        raise NotImplementedError("Tool does not support async")
+
+    # TODO: this is for backwards compatibility, remove in future
+    def __init__(
+        self, name: str, func: Callable, description: str, **kwargs: Any
+    ) -> None:
+        """Initialize tool."""
+        super(ApiTool, self).__init__(
+            name=name, func=func, description=description, **kwargs
+        )
+
+    @classmethod
+    def from_function(
+        cls,
+        func: Callable,
+        name: str,  # We keep these required to support backwards compatibility
+        description: str,
+        return_direct: bool = False,
+        args_schema: Optional[Type[BaseModel]] = None,
+        **kwargs: Any,
+    ) -> Tool:
+        """Initialize tool from a function."""
+        return cls(
+            name=name,
+            func=func,
+            description=description,
+            return_direct=return_direct,
+            args_schema=args_schema,
+            **kwargs,
+        )
 
 def tool(
     *args: Union[str, Callable],

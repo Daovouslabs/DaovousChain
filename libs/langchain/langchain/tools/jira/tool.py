@@ -32,14 +32,15 @@ from typing import Optional
 
 from pydantic import Field
 
-from langchain.callbacks.manager import CallbackManagerForToolRun
+from langchain.callbacks.manager import (
+    AsyncCallbackManagerForToolRun,
+    CallbackManagerForToolRun,
+)
 from langchain.tools.base import BaseTool
 from langchain.utilities.jira import JiraAPIWrapper
-
+from langchain.sync_utils import make_async
 
 class JiraAction(BaseTool):
-    """Tool that queries the Atlassian Jira API."""
-
     api_wrapper: JiraAPIWrapper = Field(default_factory=JiraAPIWrapper)
     mode: str
     name = ""
@@ -52,3 +53,12 @@ class JiraAction(BaseTool):
     ) -> str:
         """Use the Atlassian Jira API to run an operation."""
         return self.api_wrapper.run(self.mode, instructions)
+
+    async def _arun(
+        self,
+        instructions: str,
+        run_manager: Optional[AsyncCallbackManagerForToolRun] = None,
+    ) -> str:
+        """Use the Atlassian Jira API to run an operation."""
+        # raise NotImplementedError("JiraAction does not support async")
+        return await make_async(self.api_wrapper.run)(self.mode, instructions)

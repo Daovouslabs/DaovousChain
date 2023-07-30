@@ -14,7 +14,7 @@ from langchain.prompts import PromptTemplate
 from langchain.utilities.spark_sql import SparkSQL
 from langchain.tools.base import BaseTool
 from langchain.tools.spark_sql.prompt import QUERY_CHECKER
-
+from langchain.sync_utils import make_async
 
 class BaseSparkSQLTool(BaseModel):
     """Base tool for interacting with Spark SQL."""
@@ -48,6 +48,14 @@ class QuerySparkSQLTool(BaseSparkSQLTool, BaseTool):
         """Execute the query, return the results or an error message."""
         return self.db.run_no_throw(query)
 
+    async def _arun(
+        self,
+        query: str,
+        run_manager: Optional[AsyncCallbackManagerForToolRun] = None,
+    ) -> str:
+        # raise NotImplementedError("QuerySqlDbTool does not support async")
+        return await make_async(self._run)(query, run_manager)
+
 
 class InfoSparkSQLTool(BaseSparkSQLTool, BaseTool):
     """Tool for getting metadata about a Spark SQL."""
@@ -68,6 +76,14 @@ class InfoSparkSQLTool(BaseSparkSQLTool, BaseTool):
         """Get the schema for tables in a comma-separated list."""
         return self.db.get_table_info_no_throw(table_names.split(", "))
 
+    async def _arun(
+        self,
+        table_name: str,
+        run_manager: Optional[AsyncCallbackManagerForToolRun] = None,
+    ) -> str:
+        # raise NotImplementedError("SchemaSqlDbTool does not support async")
+        return await make_async(self._run)(table_name, run_manager)
+
 
 class ListSparkSQLTool(BaseSparkSQLTool, BaseTool):
     """Tool for getting tables names."""
@@ -82,6 +98,14 @@ class ListSparkSQLTool(BaseSparkSQLTool, BaseTool):
     ) -> str:
         """Get the schema for a specific table."""
         return ", ".join(self.db.get_usable_table_names())
+
+    async def _arun(
+        self,
+        tool_input: str = "",
+        run_manager: Optional[AsyncCallbackManagerForToolRun] = None,
+    ) -> str:
+        # raise NotImplementedError("ListTablesSqlDbTool does not support async")
+        return await make_async(self._run)(tool_input, run_manager)
 
 
 class QueryCheckerTool(BaseSparkSQLTool, BaseTool):

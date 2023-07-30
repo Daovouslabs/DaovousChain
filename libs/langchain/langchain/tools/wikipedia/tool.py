@@ -2,13 +2,16 @@
 
 from typing import Optional
 
-from langchain.callbacks.manager import CallbackManagerForToolRun
+from langchain.callbacks.manager import (
+    AsyncCallbackManagerForToolRun,
+    CallbackManagerForToolRun,
+)
 from langchain.tools.base import BaseTool
 from langchain.utilities.wikipedia import WikipediaAPIWrapper
-
+from langchain.sync_utils import make_async
 
 class WikipediaQueryRun(BaseTool):
-    """Tool that searches the Wikipedia API."""
+    """Tool that adds the capability to search using the Wikipedia API."""
 
     name = "Wikipedia"
     description = (
@@ -26,3 +29,12 @@ class WikipediaQueryRun(BaseTool):
     ) -> str:
         """Use the Wikipedia tool."""
         return self.api_wrapper.run(query)
+
+    async def _arun(
+        self,
+        query: str,
+        run_manager: Optional[AsyncCallbackManagerForToolRun] = None,
+    ) -> str:
+        """Use the Wikipedia tool asynchronously."""
+        # raise NotImplementedError("WikipediaQueryRun does not support async")
+        return await make_async(self.api_wrapper.run)(query)

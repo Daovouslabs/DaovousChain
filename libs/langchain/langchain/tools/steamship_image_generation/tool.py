@@ -18,11 +18,14 @@ from typing import TYPE_CHECKING, Dict, Optional
 
 from pydantic import root_validator
 
-from langchain.callbacks.manager import CallbackManagerForToolRun
+from langchain.callbacks.manager import (
+    AsyncCallbackManagerForToolRun,
+    CallbackManagerForToolRun,
+)
 from langchain.tools import BaseTool
 from langchain.tools.steamship_image_generation.utils import make_image_public
 from langchain.utils import get_from_dict_or_env
-
+from langchain.sync_utils import make_async
 if TYPE_CHECKING:
     from steamship import Steamship
 
@@ -111,3 +114,12 @@ class SteamshipImageGenerationTool(BaseTool):
                 return blocks[0].id
 
         raise RuntimeError(f"[{self.name}] Tool unable to generate image!")
+
+    async def _arun(
+        self,
+        query: str,
+        run_manager: Optional[AsyncCallbackManagerForToolRun] = None,
+    ) -> str:
+        """Use the tool asynchronously."""
+        # raise NotImplementedError("GenerateImageTool does not support async")
+        return await make_async(self._run)(query, run_manager)

@@ -11,10 +11,10 @@ from langchain.callbacks.manager import (
 )
 from langchain.chains.llm import LLMChain
 from langchain.prompts import PromptTemplate
-from langchain.utilities.sql_database import SQLDatabase
+from langchain.sql_database import SQLDatabase
 from langchain.tools.base import BaseTool
 from langchain.tools.sql_database.prompt import QUERY_CHECKER
-
+from langchain.sync_utils import make_async
 
 class BaseSQLDatabaseTool(BaseModel):
     """Base tool for interacting with a SQL database."""
@@ -48,6 +48,14 @@ class QuerySQLDataBaseTool(BaseSQLDatabaseTool, BaseTool):
         """Execute the query, return the results or an error message."""
         return self.db.run_no_throw(query)
 
+    async def _arun(
+        self,
+        query: str,
+        run_manager: Optional[AsyncCallbackManagerForToolRun] = None,
+    ) -> str:
+        # raise NotImplementedError("QuerySqlDbTool does not support async")
+        return await make_async(self._run)(query, run_manager)
+
 
 class InfoSQLDatabaseTool(BaseSQLDatabaseTool, BaseTool):
     """Tool for getting metadata about a SQL database."""
@@ -67,6 +75,14 @@ class InfoSQLDatabaseTool(BaseSQLDatabaseTool, BaseTool):
         """Get the schema for tables in a comma-separated list."""
         return self.db.get_table_info_no_throw(table_names.split(", "))
 
+    async def _arun(
+        self,
+        table_name: str,
+        run_manager: Optional[AsyncCallbackManagerForToolRun] = None,
+    ) -> str:
+        # raise NotImplementedError("SchemaSqlDbTool does not support async")
+        return await make_async(self._run)(table_name, run_manager)
+
 
 class ListSQLDatabaseTool(BaseSQLDatabaseTool, BaseTool):
     """Tool for getting tables names."""
@@ -82,6 +98,13 @@ class ListSQLDatabaseTool(BaseSQLDatabaseTool, BaseTool):
         """Get the schema for a specific table."""
         return ", ".join(self.db.get_usable_table_names())
 
+    async def _arun(
+        self,
+        tool_input: str = "",
+        run_manager: Optional[AsyncCallbackManagerForToolRun] = None,
+    ) -> str:
+        # raise NotImplementedError("ListTablesSqlDbTool does not support async")
+        return await make_async(self._run)(tool_input, run_manager)
 
 class QuerySQLCheckerTool(BaseSQLDatabaseTool, BaseTool):
     """Use an LLM to check if a query is correct.

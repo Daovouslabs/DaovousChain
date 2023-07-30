@@ -13,10 +13,7 @@ from langchain.callbacks.manager import (
 )
 from langchain.tools.base import BaseTool
 
-
 class ApiConfig(BaseModel):
-    """API Configuration."""
-
     type: str
     url: str
     has_user_authentication: Optional[bool] = False
@@ -59,16 +56,15 @@ def marshal_spec(txt: str) -> dict:
 
 
 class AIPluginToolSchema(BaseModel):
-    """Schema for AIPluginTool."""
+    """AIPLuginToolSchema."""
 
     tool_input: Optional[str] = ""
 
 
 class AIPluginTool(BaseTool):
-    """Tool for getting the OpenAPI spec for an AI Plugin."""
-
     plugin: AIPlugin
     api_spec: str
+    api_spec_dict: dict
     args_schema: Type[AIPluginToolSchema] = AIPluginToolSchema
 
     @classmethod
@@ -92,6 +88,7 @@ class AIPluginTool(BaseTool):
             description=description,
             plugin=plugin,
             api_spec=api_spec,
+            api_spec_dict=open_api_spec
         )
 
     def _run(

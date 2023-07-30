@@ -2,19 +2,22 @@
 
 from typing import Optional
 
-from langchain.callbacks.manager import CallbackManagerForToolRun
+from langchain.callbacks.manager import (
+    AsyncCallbackManagerForToolRun,
+    CallbackManagerForToolRun,
+)
 from langchain.tools.base import BaseTool
 from langchain.utilities.google_search import GoogleSearchAPIWrapper
-
+from langchain.sync_utils import make_async
 
 class GoogleSearchRun(BaseTool):
-    """Tool that queries the Google search API."""
+    """Tool that adds the capability to query the Google search API."""
 
     name = "google_search"
     description = (
         "A wrapper around Google Search. "
         "Useful for when you need to answer questions about current events. "
-        "Input should be a search query."
+        "Input should be a string as search query."
     )
     api_wrapper: GoogleSearchAPIWrapper
 
@@ -26,15 +29,24 @@ class GoogleSearchRun(BaseTool):
         """Use the tool."""
         return self.api_wrapper.run(query)
 
+    async def _arun(
+        self,
+        query: str,
+        run_manager: Optional[AsyncCallbackManagerForToolRun] = None,
+    ) -> str:
+        """Use the tool asynchronously."""
+        # raise NotImplementedError("GoogleSearchRun does not support async")
+        return await make_async(self.api_wrapper.run)(query)
+
 
 class GoogleSearchResults(BaseTool):
-    """Tool that queries the Google Search API and gets back json."""
+    """Tool that has capability to query the Google Search API and get back json."""
 
     name = "Google Search Results JSON"
     description = (
         "A wrapper around Google Search. "
         "Useful for when you need to answer questions about current events. "
-        "Input should be a search query. Output is a JSON array of the query results"
+        "Input should be a string as search query. Output is a JSON array of the query results"
     )
     num_results: int = 4
     api_wrapper: GoogleSearchAPIWrapper
@@ -46,3 +58,12 @@ class GoogleSearchResults(BaseTool):
     ) -> str:
         """Use the tool."""
         return str(self.api_wrapper.results(query, self.num_results))
+
+    async def _arun(
+        self,
+        query: str,
+        run_manager: Optional[AsyncCallbackManagerForToolRun] = None,
+    ) -> str:
+        """Use the tool asynchronously."""
+        # raise NotImplementedError("GoogleSearchRun does not support async")
+        return str(await make_async(self.api_wrapper.results)(query, self.num_results))

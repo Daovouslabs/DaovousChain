@@ -6,6 +6,8 @@ from typing import Any, Callable, Dict, List, Optional
 
 import yaml
 from pydantic import Field
+from pydantic import BaseModel
+from langchain.callbacks.manager import Callbacks
 
 from langchain.agents.agent import AgentExecutor
 from langchain.agents.agent_toolkits.openapi.planner_prompt import (
@@ -28,17 +30,19 @@ from langchain.agents.agent_toolkits.openapi.planner_prompt import (
 from langchain.agents.agent_toolkits.openapi.spec import ReducedOpenAPISpec
 from langchain.agents.mrkl.base import ZeroShotAgent
 from langchain.agents.tools import Tool
+from langchain.base_language import BaseLanguageModel
 from langchain.callbacks.base import BaseCallbackManager
 from langchain.chains.llm import LLMChain
 from langchain.llms.openai import OpenAI
 from langchain.memory import ReadOnlySharedMemory
 from langchain.prompts import PromptTemplate
+from langchain.requests import RequestsWrapper
 from langchain.schema import BasePromptTemplate
-from langchain.schema.language_model import BaseLanguageModel
 from langchain.tools.base import BaseTool
 from langchain.tools.requests.tool import BaseRequestsTool
-from langchain.utilities.requests import RequestsWrapper
-
+from langchain.sync_utils import make_async
+from langchain.json_utils import maybe_fix_json
+from langchain.media_utils import send_medias_message, is_media
 #
 # Requests tools with LLM-instructed extraction of truncated responses.
 #
@@ -46,7 +50,6 @@ from langchain.utilities.requests import RequestsWrapper
 # information in the response.
 # However, the goal for now is to have only a single inference step.
 MAX_RESPONSE_LENGTH = 5000
-"""Maximum length of the response to be returned."""
 
 
 def _get_default_llm_chain(prompt: BasePromptTemplate) -> LLMChain:
@@ -63,129 +66,188 @@ def _get_default_llm_chain_factory(
     return partial(_get_default_llm_chain, prompt)
 
 
-class RequestsGetToolWithParsing(BaseRequestsTool, BaseTool):
-    """Requests GET tool with LLM-instructed extraction of truncated responses."""
+def _build_output_instructions(input: str):
+    try:
+        if isinstance(input, dict):
+            json_obj = input
+            res = ", ".join(json_obj.keys())
+        elif isinstance(input, str):
+            json_obj = json.loads(input)
+            res = ", ".join(json_obj.keys())
+        elif isinstance(input, (list, tuple)):
+            res = ", ".join(input)
+    except json.JSONDecodeError as e:
+        res = input
+    return res
 
-    name = "requests_get"
-    """Tool name."""
+
+class RequestsGetToolWithParsing(BaseRequestsTool, BaseTool):
+    name = "requests.get"
     description = REQUESTS_GET_TOOL_DESCRIPTION
-    """Tool description."""
     response_length: Optional[int] = MAX_RESPONSE_LENGTH
-    """Maximum length of the response to be returned."""
     llm_chain: LLMChain = Field(
         default_factory=_get_default_llm_chain_factory(PARSING_GET_PROMPT)
     )
-    """LLMChain used to extract the response."""
 
     def _run(self, text: str) -> str:
-        try:
-            data = json.loads(text)
-        except json.JSONDecodeError as e:
-            raise e
+        data = maybe_fix_json(text)
         data_params = data.get("params")
         response = self.requests_wrapper.get(data["url"], params=data_params)
         response = response[: self.response_length]
-        return self.llm_chain.predict(
-            response=response, instructions=data["output_instructions"]
-        ).strip()
+        # return self.llm_chain.predict(
+        #     response=response, instructions=data["output_instructions"]
+        # ).strip()
+        return response
 
     async def _arun(self, text: str) -> str:
-        raise NotImplementedError()
+        # raise NotImplementedError()
+        # return await make_async(self._run)(text)
+        data = maybe_fix_json(text)
+        if is_media(data['url']):
+            return f"Do not need to get the content of {data['url']}, itself is the result."
+        data_params = data.get("params")
+        response = await self.requests_wrapper.aget(data["url"], params=data_params)
+        response = response[: self.response_length]
+
+        response = str(await self.llm_chain.apredict(
+            response=response, instructions=_build_output_instructions(data["output_instructions"]), stop=['<END_OF_PARSE>']
+        )).strip()
+        await send_medias_message(response)
+
+        return response
 
 
 class RequestsPostToolWithParsing(BaseRequestsTool, BaseTool):
-    """Requests POST tool with LLM-instructed extraction of truncated responses."""
-
-    name = "requests_post"
-    """Tool name."""
+    name = "requests.post"
     description = REQUESTS_POST_TOOL_DESCRIPTION
-    """Tool description."""
+
     response_length: Optional[int] = MAX_RESPONSE_LENGTH
-    """Maximum length of the response to be returned."""
     llm_chain: LLMChain = Field(
         default_factory=_get_default_llm_chain_factory(PARSING_POST_PROMPT)
     )
-    """LLMChain used to extract the response."""
 
     def _run(self, text: str) -> str:
-        try:
-            data = json.loads(text)
-        except json.JSONDecodeError as e:
-            raise e
+        data = maybe_fix_json(text)
         response = self.requests_wrapper.post(data["url"], data["data"])
         response = response[: self.response_length]
-        return self.llm_chain.predict(
-            response=response, instructions=data["output_instructions"]
-        ).strip()
+        # return self.llm_chain.predict(
+        #     response=response, instructions=data["output_instructions"]
+        # ).strip()
+        return response
 
     async def _arun(self, text: str) -> str:
-        raise NotImplementedError()
+        # raise NotImplementedError()
+        # return await make_async(self._run)(text)
+        data = maybe_fix_json(text)
+        if is_media(data['url']):
+            return f"Do not need to get the content of {data['url']}, itself is the result."
+        response = await self.requests_wrapper.apost(data["url"], data["data"])
+        response = response[: self.response_length]
+
+        response = str(await self.llm_chain.apredict(
+            response=response, instructions=_build_output_instructions(data["output_instructions"]), stop=['<END_OF_PARSE>']
+        )).strip()
+        await send_medias_message(response)
+
+        return response
 
 
 class RequestsPatchToolWithParsing(BaseRequestsTool, BaseTool):
-    """Requests PATCH tool with LLM-instructed extraction of truncated responses."""
-
-    name = "requests_patch"
-    """Tool name."""
+    name = "requests.patch"
     description = REQUESTS_PATCH_TOOL_DESCRIPTION
-    """Tool description."""
+
     response_length: Optional[int] = MAX_RESPONSE_LENGTH
-    """Maximum length of the response to be returned."""
     llm_chain: LLMChain = Field(
         default_factory=_get_default_llm_chain_factory(PARSING_PATCH_PROMPT)
     )
-    """LLMChain used to extract the response."""
 
     def _run(self, text: str) -> str:
-        try:
-            data = json.loads(text)
-        except json.JSONDecodeError as e:
-            raise e
+        data = maybe_fix_json(text)
         response = self.requests_wrapper.patch(data["url"], data["data"])
         response = response[: self.response_length]
-        return self.llm_chain.predict(
-            response=response, instructions=data["output_instructions"]
-        ).strip()
+        # return self.llm_chain.predict(
+        #     response=response, instructions=data["output_instructions"]
+        # ).strip()
+        return response
 
     async def _arun(self, text: str) -> str:
-        raise NotImplementedError()
+        # raise NotImplementedError()
+        # return await make_async(self._run)(text)
+        data = maybe_fix_json(text)
+        if is_media(data['url']):
+            return f"Do not need to get the content of {data['url']}, itself is the result."
+        response = await self.requests_wrapper.apatch(data["url"], data["data"])
+        response = response[: self.response_length]
+
+        response = str(await self.llm_chain.apredict(
+            response=response, instructions=_build_output_instructions(data["output_instructions"]), stop=['<END_OF_PARSE>']
+        )).strip()
+        await send_medias_message(response)
+
+        return response
 
 
 class RequestsDeleteToolWithParsing(BaseRequestsTool, BaseTool):
-    """A tool that sends a DELETE request and parses the response."""
-
-    name = "requests_delete"
-    """The name of the tool."""
+    name = "requests.delete"
     description = REQUESTS_DELETE_TOOL_DESCRIPTION
-    """The description of the tool."""
 
     response_length: Optional[int] = MAX_RESPONSE_LENGTH
-    """The maximum length of the response."""
     llm_chain: LLMChain = Field(
         default_factory=_get_default_llm_chain_factory(PARSING_DELETE_PROMPT)
     )
-    """The LLM chain used to parse the response."""
 
     def _run(self, text: str) -> str:
-        try:
-            data = json.loads(text)
-        except json.JSONDecodeError as e:
-            raise e
+        data = maybe_fix_json(text)
         response = self.requests_wrapper.delete(data["url"])
         response = response[: self.response_length]
-        return self.llm_chain.predict(
-            response=response, instructions=data["output_instructions"]
-        ).strip()
+        # return self.llm_chain.predict(
+        #     response=response, instructions=data["output_instructions"]
+        # ).strip()
+        return response
 
     async def _arun(self, text: str) -> str:
-        raise NotImplementedError()
+        # raise NotImplementedError()
+        # return await make_async(self._run)(text)
+        data = maybe_fix_json(text)
+        if is_media(data['url']):
+            return f"Do not need to get the content of {data['url']}, itself is the result."
+        response = await self.requests_wrapper.adelete(data["url"])
+        response = response[: self.response_length]
 
+        response = str(await self.llm_chain.apredict(
+            response=response, instructions=_build_output_instructions(data["output_instructions"]), stop=['<END_OF_PARSE>']
+        )).strip()
+        await send_medias_message(response)
+
+        return response
+
+class ApiPlanner(BaseModel):
+    llm_chain: LLMChain
+    stop: Optional[List] = None
+
+    def plan(self, *args: Any, callbacks: Callbacks = None, **kwargs: Any) -> str:
+        """Given input, decided what to do."""
+        kwargs['query'] = args[0]
+        llm_response = self.llm_chain.run(stop=self.stop, callbacks=callbacks, **kwargs)
+        return llm_response
+
+    async def aplan(
+        self, *args: Any, callbacks: Callbacks = None, **kwargs: Any
+    ) -> str:
+        """Given input, decided what to do."""
+        kwargs['query'] = args[0]
+
+        llm_response = await self.llm_chain.arun(
+            stop=self.stop, callbacks=callbacks, **kwargs
+        )
+        return llm_response
 
 #
 # Orchestrator, planner, controller.
 #
 def _create_api_planner_tool(
-    api_spec: ReducedOpenAPISpec, llm: BaseLanguageModel
+    api_spec: ReducedOpenAPISpec, 
+    llm: BaseLanguageModel, 
 ) -> Tool:
     endpoint_descriptions = [
         f"{name} {description}" for name, description, _ in api_spec.endpoints
@@ -196,10 +258,12 @@ def _create_api_planner_tool(
         partial_variables={"endpoints": "- " + "- ".join(endpoint_descriptions)},
     )
     chain = LLMChain(llm=llm, prompt=prompt)
+    planner = ApiPlanner(llm_chain=chain, stop=['<END_OF_PLAN>'])
     tool = Tool(
         name=API_PLANNER_TOOL_NAME,
         description=API_PLANNER_TOOL_DESCRIPTION,
-        func=chain.run,
+        func=planner.plan,
+        coroutine=planner.aplan
     )
     return tool
 
@@ -270,11 +334,30 @@ def _create_api_controller_tool(
 
         agent = _create_api_controller_agent(base_url, docs_str, requests_wrapper, llm)
         return agent.run(plan_str)
+    
+    async def _acreate_and_run_api_controller_agent(plan_str: str) -> str:
+        pattern = r"\b(GET|POST|PATCH|DELETE)\s+(/\S+)*"
+        matches = re.findall(pattern, plan_str)
+        endpoint_names = [
+            "{method} {route}".format(method=method, route=route.split("?")[0])
+            for method, route in matches
+        ]
+        endpoint_docs_by_name = {name: docs for name, _, docs in api_spec.endpoints}
+        docs_str = ""
+        for endpoint_name in endpoint_names:
+            docs = endpoint_docs_by_name.get(endpoint_name)
+            if not docs:
+                raise ValueError(f"{endpoint_name} endpoint does not exist.")
+            docs_str += f"== Docs for {endpoint_name} == \n{yaml.dump(docs)}\n"
+
+        agent = _create_api_controller_agent(base_url, docs_str, requests_wrapper, llm)
+        return await agent.arun(plan_str)
 
     return Tool(
         name=API_CONTROLLER_TOOL_NAME,
         func=_create_and_run_api_controller_agent,
         description=API_CONTROLLER_TOOL_DESCRIPTION,
+        coroutine=_acreate_and_run_api_controller_agent
     )
 
 
@@ -288,7 +371,7 @@ def create_openapi_agent(
     agent_executor_kwargs: Optional[Dict[str, Any]] = None,
     **kwargs: Dict[str, Any],
 ) -> AgentExecutor:
-    """Instantiate OpenAI API planner and controller for a given spec.
+    """Instantiate API planner and controller for a given spec.
 
     Inject credentials via requests_wrapper.
 
