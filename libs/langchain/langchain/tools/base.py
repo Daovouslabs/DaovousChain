@@ -33,7 +33,7 @@ class SchemaAnnotationError(TypeError):
 class ToolMetaclass(ModelMetaclass):
     """Metaclass for BaseTool to ensure the provided args_schema
 
-    doesn't silently ignored."""
+    doesn't silently ignore."""
 
     def __new__(
         cls: Type[ToolMetaclass], name: str, bases: Tuple[Type, ...], dct: dict
