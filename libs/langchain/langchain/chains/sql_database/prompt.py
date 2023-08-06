@@ -17,9 +17,13 @@ Pay attention to use only the column names that you can see in the schema descri
 Use the following format:
 
 Question: Question here
-SQLQuery: SQL Query to run
+SQLQuery: SQL Query to run. When the type of the sorted column is a string, add a sort according to the length of the string.
 SQLResult: Result of the SQLQuery
-Answer: Final answer here
+Answer: Final answer here. Provide as much relevant information as possible in a friendly tone, given that the question has been answered. Do not ask questions again and end with '<|End_of_Ans|>'.
+
+For example:
+Question: the most expensive crypto punk
+SQLQuery:SELECT value, punkIndex FROM `ethereum_cryptopunks`.`CryptoPunksMarket_event_PunkBought_history` ORDER BY length(value) DESC, value DESC LIMIT 2
 
 """
 
@@ -29,13 +33,17 @@ PROMPT = PromptTemplate(
 )
 
 
-_DECIDER_TEMPLATE = """Given the below input question and list of potential tables, output a comma separated list of the table names that may be necessary to answer this question.
+_DECIDER_TEMPLATE = """Given the below input question and list of potential tables, output a comma separated list of the table names that may be necessary to answer this question or related to the question.
 
 Question: {query}
 
-Table Names: {table_names}
+Potential Table Names: {table_names}
 
-Relevant Table Names:"""
+Think carefully about the question, giving a maximum of 5 most relevant different tables sorted in descending order of relevance.
+
+At the end of outputing relevant tables, say '<END_OF_TABLES>'.
+
+Begin, Most relevant tables:"""
 DECIDER_PROMPT = PromptTemplate(
     input_variables=["query", "table_names"],
     template=_DECIDER_TEMPLATE,

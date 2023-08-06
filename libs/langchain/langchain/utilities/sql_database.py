@@ -3,7 +3,7 @@ from __future__ import annotations
 
 import warnings
 from typing import Any, Iterable, List, Optional
-
+import logging
 import sqlalchemy
 from sqlalchemy import MetaData, Table, create_engine, inspect, select, text
 from sqlalchemy.engine import Engine
@@ -12,6 +12,7 @@ from sqlalchemy.schema import CreateTable
 
 from langchain.utils import get_from_env
 
+logger = logging.getLogger(__name__)
 
 def _format_index(index: sqlalchemy.engine.interfaces.ReflectedIndex) -> str:
     return (
@@ -34,6 +35,7 @@ def truncate_word(content: Any, *, length: int, suffix: str = "...") -> str:
 
     return content[: length - len(suffix)].rsplit(" ", 1)[0] + suffix
 
+dataset_cache = {}
 
 class SQLDatabase:
     """SQLAlchemy wrapper around a database."""
@@ -41,6 +43,7 @@ class SQLDatabase:
     def __init__(
         self,
         engine: Engine,
+        engine_exe: Engine = None,
         schema: Optional[str] = None,
         metadata: Optional[MetaData] = None,
         ignore_tables: Optional[List[str]] = None,
@@ -52,6 +55,7 @@ class SQLDatabase:
         max_string_length: int = 300,
     ):
         """Create engine from database URI."""
+        self._engine_exe = engine_exe or engine
         self._engine = engine
         self._schema = schema
         if include_tables and ignore_tables:
@@ -61,9 +65,17 @@ class SQLDatabase:
 
         # including view support by adding the views as well as tables to the all
         # tables list if view_support is True
+        tmp_schema = schema.split('.')[-1]
+        if schema not in dataset_cache:
+            dataset_cache[schema] = {
+                "all_tables": self._inspector.get_table_names(schema=tmp_schema),
+                "all_views": self._inspector.get_view_names(schema=tmp_schema),
+                "tables": {},
+                "metadata": None
+            }
         self._all_tables = set(
-            self._inspector.get_table_names(schema=schema)
-            + (self._inspector.get_view_names(schema=schema) if view_support else [])
+            dataset_cache.get(schema, {}).get('all_tables', [])
+            + (dataset_cache.get(schema, {}).get('all_views', []) if view_support else [])
         )
 
         self._include_tables = set(include_tables) if include_tables else set()
@@ -106,14 +118,19 @@ class SQLDatabase:
 
         self._max_string_length = max_string_length
 
-        self._metadata = metadata or MetaData()
-        # including view support if view_support = true
-        self._metadata.reflect(
-            views=view_support,
-            bind=self._engine,
-            only=list(self._usable_tables),
-            schema=self._schema,
-        )
+        if not dataset_cache.get(schema, {}).get("metadata"):
+            _metadata = metadata or MetaData()
+            # including view support if view_support = true
+            _metadata.reflect(
+                views=view_support,
+                bind=self._engine,
+                only=list(self._usable_tables),
+                schema=tmp_schema,
+            )
+            dataset_cache[schema]['metadata'] = _metadata
+
+        self._metadata = dataset_cache.get(schema, {}).get('metadata')
+        
 
     @classmethod
     def from_uri(
@@ -310,10 +327,14 @@ class SQLDatabase:
 
         tables = []
         for table in meta_tables:
+            # get from cahce
+            if table.name in dataset_cache.get(self._schema, {}).get('tables', {}):
+                logger.debug(f"table {table.name} hit cache {dataset_cache.get(self._schema, {}).get('tables', {}).get(table.name)}")
+                tables.append(dataset_cache.get(self._schema, {}).get('tables', {}).get(table.name))
+                continue
             if self._custom_table_info and table.name in self._custom_table_info:
                 tables.append(self._custom_table_info[table.name])
                 continue
-
             # add create table command
             create_table = str(CreateTable(table).compile(self._engine))
             table_info = f"{create_table.rstrip()}"
@@ -329,6 +350,7 @@ class SQLDatabase:
             if has_extra_info:
                 table_info += "*/"
             tables.append(table_info)
+            dataset_cache[self._schema]['tables'][table.name] = table_info
         tables.sort()
         final_str = "\n\n".join(tables)
         return final_str
@@ -339,6 +361,8 @@ class SQLDatabase:
         return f"Table Indexes:\n{indexes_formatted}"
 
     def _get_sample_rows(self, table: Table) -> str:
+        logger.debug(f"###tabel: {table.__dict__}")
+        table.schema = f"{self._schema.split('.')[0]}.{table.schema}"
         # build the select command
         command = select(table).limit(self._sample_rows_in_table_info)
 
@@ -347,7 +371,10 @@ class SQLDatabase:
 
         try:
             # get the sample rows
-            with self._engine.connect() as connection:
+            logger.debug(f"###command: {command}")
+            with self._engine_exe.connect() as connection:
+                if self.dialect == "bigquery":
+                    connection.exec_driver_sql(f"SET @@dataset_project_id='{self._schema.split('.')[0]}'")
                 sample_rows_result = connection.execute(command)  # type: ignore
                 # shorten values in the sample rows
                 sample_rows = list(
@@ -375,18 +402,20 @@ class SQLDatabase:
         If the statement returns no rows, an empty string is returned.
 
         """
-        with self._engine.begin() as connection:
+        command = command.replace(f"`{self._schema.split('.')[-1]}", f"`{self._schema}")
+        with self._engine_exe.begin() as connection:
             if self._schema is not None:
                 if self.dialect == "snowflake":
                     connection.exec_driver_sql(
                         f"ALTER SESSION SET search_path='{self._schema}'"
                     )
                 elif self.dialect == "bigquery":
-                    connection.exec_driver_sql(f"SET @@dataset_id='{self._schema}'")
+                    connection.exec_driver_sql(f"SET @@dataset_project_id='{self._schema.split('.')[0]}'")
                 elif self.dialect == "mssql":
                     pass
                 else:  # postgresql and compatible dialects
                     connection.exec_driver_sql(f"SET search_path TO {self._schema}")
+            print(f"###run command: {command}")
             cursor = connection.execute(text(command))
             if cursor.returns_rows:
                 if fetch == "all":
