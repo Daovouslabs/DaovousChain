@@ -35,7 +35,17 @@ def truncate_word(content: Any, *, length: int, suffix: str = "...") -> str:
 
     return content[: length - len(suffix)].rsplit(" ", 1)[0] + suffix
 
-dataset_cache = {}
+import os
+import pickle
+from dotenv import load_dotenv
+env_found = load_dotenv(dotenv_path=os.path.join(os.getcwd(), ".env"))
+
+if env_found:
+    logger.info("Loaded .env file")
+    
+logger.info("dataset cache loading")
+dataset_cache = pickle.load(open(os.getenv('DATASET_CACHE'), 'rb'))
+logger.info("dataset cache loaded")
 
 class SQLDatabase:
     """SQLAlchemy wrapper around a database."""
