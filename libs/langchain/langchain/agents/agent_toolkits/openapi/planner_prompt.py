@@ -5,13 +5,6 @@ from langchain.prompts.prompt import PromptTemplate
 
 API_PLANNER_PROMPT = """You are a planner that plans a sequence of API calls to assist with user queries against an API.
 
-You should:
-1) evaluate whether the user query can be solved by the API documentated below. If no, say why.
-2) if yes, generate a plan of API calls and say what they are doing step by step.
-3) If the plan includes a DELETE call, you should always return an ask from the User for authorization first unless the User has specifically asked to delete something.
-4) Don't make contradictory plans, such as when you make a plan and then regret that you can't make it.
-5) Don't interactive between "User query" with "Plan" multiple time.
-
 You should only use API endpoints documented below ("Endpoints you can use:").
 You can only use the DELETE tool if the User has specifically asked to delete something. Otherwise, you should return a request authorization from the User first.
 Some user queries can be resolved in a single API call, but some will require several API calls.
@@ -31,30 +24,30 @@ DELETE /users/{{id}}/cart to delete a user's cart
 POST /image/classify to classify the image, input is a image url
 
 User query: tell me a joke
-Plan: Sorry, this API's domain is shopping, not comedy.
+Plan: Sorry, this API's domain is shopping, not comedy.<END_OF_PLAN>
 
 User query: http://a_image_url.jpg
-Plan: 1. POST /image/classify with the image url http://a_image_url.jpg as input to classify image
+Plan: 1. POST /image/classify with the image url http://a_image_url.jpg as input to classify image<END_OF_PLAN>
 
 User query: I want to buy a couch
 Plan: 1. GET /products with a query param to search for couches
 2. GET /user to find the user's id
-3. POST /users/{{id}}/cart to add a couch to the user's cart
+3. POST /users/{{id}}/cart to add a couch to the user's cart<END_OF_PLAN>
 
 User query: I want to add a lamp to my cart
 Plan: 1. GET /products with a query param to search for lamps
 2. GET /user to find the user's id
-3. PATCH /users/{{id}}/cart to add a lamp to the user's cart
+3. PATCH /users/{{id}}/cart to add a lamp to the user's cart<END_OF_PLAN>
 
 User query: I want to delete my cart
 Plan: 1. GET /user to find the user's id
 2. DELETE required. Did user specify DELETE or previously authorize? Yes, proceed.
-3. DELETE /users/{{id}}/cart to delete the user's cart
+3. DELETE /users/{{id}}/cart to delete the user's cart<END_OF_PLAN>
 
 User query: I want to start a new cart
 Plan: 1. GET /user to find the user's id
 2. DELETE required. Did user specify DELETE or previously authorize? No, ask for authorization.
-3. Are you sure you want to delete your cart? 
+3. Are you sure you want to delete your cart?<END_OF_PLAN>
 ----
 
 Here are endpoints you can use. Do NOT reference any of the fake endpoints mentioned above.
@@ -65,6 +58,13 @@ Avaliable Endpoints:
 {endpoints}
 
 ----
+
+You should:
+1) evaluate whether the user query can be solved by the API documentated below. If no, say why.
+2) if yes, generate a plan of API calls and say what they are doing step by step.
+3) If the plan includes a DELETE call, you should always return an ask from the User for authorization first unless the User has specifically asked to delete something.
+4) Don't make contradictory plans, such as when you make a plan and then regret that you can't make it.
+5) Just make plans related to user query, don't ask and answer yourself.
 
 User query: {query}
 Plan:"""
@@ -91,15 +91,12 @@ Starting below, you should follow this format:
 
 Plan: the plan of API calls to execute
 Thought: you should always think about what to do
-Action: the action to take, which can not be empty and MUST be one of the tools: 
-
-tools: {tool_names}
-
-Action Input: the input to the action, MUST be a valid json blob which can be parsed.
+Action: the action to take, which can not be empty and MUST be one of the tools: {tool_names}
+Action Input: the input to the action, MUST be a valid json blob which can be parsed. And MUST meet the requirements of the endpoints for parameters.
 Observation: the output of the action
 ... (this Thought/Action/Action Input/Observation can repeat N times)
-Thought: I am finished executing the plan (or, I cannot finish executing the plan without knowing some other information.)
-Final Answer: the final output from executing the plan or missing information I'd need to re-plan correctly. At the end of Final Answer, say '<|im_sep|>'.
+Thought: I am finished executing the plan (or, I cannot finish executing the plan)
+Final Answer: the final output(as detailed as possible) from executing the plan success or failure. At the end of Final Answer, say '<|im_end|>'.
 
 Begin! 
 
@@ -142,7 +139,7 @@ Action Input: the input to the action, include the copy of user input/query if n
 Observation: the result of the action
 ... (this Thought/Action/Action Input/Observation can repeat N times)
 Thought: I am finished executing a plan and have the information the user asked for or the data the user asked to create
-Final Answer: the final output from executing the plan. At the end of Final Answer, say '<|im_sep|>'.
+Final Answer: the final output from executing the plan. At the end of Final Answer, say '<|im_end|>'.
 
 
 Example:

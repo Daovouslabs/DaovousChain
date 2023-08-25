@@ -250,7 +250,7 @@ def _create_api_planner_tool(
     llm: BaseLanguageModel, 
 ) -> Tool:
     endpoint_descriptions = [
-        f"{name} {description}" for name, description, _ in api_spec.endpoints
+        f"{name} {description}\n" for name, description, _ in api_spec.endpoints
     ]
     prompt = PromptTemplate(
         template=API_PLANNER_PROMPT,

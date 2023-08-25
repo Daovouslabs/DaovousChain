@@ -423,6 +423,7 @@ class Agent(BaseSingleActionAgent):
         return [
             f"\n{self.observation_prefix.rstrip()}",
             f"\n\t{self.observation_prefix.rstrip()}",
+            "<|im_end|>"
         ]
 
     def _construct_scratchpad(
