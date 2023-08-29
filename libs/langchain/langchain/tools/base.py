@@ -630,7 +630,7 @@ class ApiTool(BaseTool):
             return self.args_schema.schema()["properties"]
         # For backwards compatibility, if the function signature is ambiguous,
         # assume it takes a single string input.
-        return {"tool_input": {"params": {"type": "string"}, "task_description":{"type": "string"}}}
+        return {"tool_input": {"params": {"type": "string", "required": True}, "task_description":{"type": "string", "required": True}}}
 
     def _to_args_and_kwargs(self, tool_input: Union[str, Dict]) -> Tuple[Tuple, Dict]:
         """Convert tool input to pydantic model."""
