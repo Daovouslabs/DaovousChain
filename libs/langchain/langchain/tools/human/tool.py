@@ -2,12 +2,11 @@
 
 from typing import Callable, Optional
 
-from pydantic import Field
-
 from langchain.callbacks.manager import (
     AsyncCallbackManagerForToolRun,
     CallbackManagerForToolRun,
 )
+from langchain.pydantic_v1 import Field
 from langchain.tools.base import BaseTool
 from langchain.sync_utils import make_async
 
@@ -19,8 +18,8 @@ def _print_func(text: str) -> None:
 class HumanInputRun(BaseTool):
     """Tool that adds the capability to ask user for input."""
 
-    name = "human"
-    description = (
+    name: str = "human"
+    description: str = (
         "You can ask a human for guidance when you think you "
         "got stuck or you are not sure what to do next. "
         "The input should be a question for the human."

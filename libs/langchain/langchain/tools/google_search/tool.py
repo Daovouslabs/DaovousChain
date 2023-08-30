@@ -13,8 +13,8 @@ from langchain.sync_utils import make_async
 class GoogleSearchRun(BaseTool):
     """Tool that adds the capability to query the Google search API."""
 
-    name = "google_search"
-    description = (
+    name: str = "google_search"
+    description: str = (
         "A wrapper around Google Search. "
         "Useful for when you need to answer questions about current events. "
         "Input should be a string as search query."
@@ -42,8 +42,8 @@ class GoogleSearchRun(BaseTool):
 class GoogleSearchResults(BaseTool):
     """Tool that has capability to query the Google Search API and get back json."""
 
-    name = "Google Search Results JSON"
-    description = (
+    name: str = "Google Search Results JSON"
+    description: str = (
         "A wrapper around Google Search. "
         "Useful for when you need to answer questions about current events. "
         "Input should be a string as search query. Output is a JSON array of the query results"

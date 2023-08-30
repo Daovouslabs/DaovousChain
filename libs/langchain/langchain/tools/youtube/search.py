@@ -19,8 +19,10 @@ from langchain.tools import BaseTool
 from langchain.sync_utils import make_async
 
 class YouTubeSearchTool(BaseTool):
-    name = "youtube_search"
-    description = (
+    """Tool that queries YouTube."""
+
+    name: str = "youtube_search"
+    description: str = (
         "search for youtube videos associated with a person. "
         "the input to this tool should be a comma separated list, "
         "the first part contains a person name and the second a "

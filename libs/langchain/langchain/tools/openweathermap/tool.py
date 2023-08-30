@@ -2,12 +2,11 @@
 
 from typing import Optional
 
-from pydantic import Field
-
 from langchain.callbacks.manager import (
     AsyncCallbackManagerForToolRun,
     CallbackManagerForToolRun,
 )
+from langchain.pydantic_v1 import Field
 from langchain.tools.base import BaseTool
 from langchain.utilities import OpenWeatherMapAPIWrapper
 from langchain.sync_utils import make_async
@@ -19,8 +18,8 @@ class OpenWeatherMapQueryRun(BaseTool):
         default_factory=OpenWeatherMapAPIWrapper
     )
 
-    name = "OpenWeatherMap"
-    description = (
+    name: str = "OpenWeatherMap"
+    description: str = (
         "A wrapper around OpenWeatherMap API. "
         "Useful for fetching current weather information for a specified location. "
         "Input should be a location string (e.g. London,GB)."

@@ -2,12 +2,11 @@
 
 from typing import Optional
 
-from pydantic import Field
-
 from langchain.callbacks.manager import (
     AsyncCallbackManagerForToolRun,
     CallbackManagerForToolRun,
 )
+from langchain.pydantic_v1 import Field
 from langchain.tools.base import BaseTool
 from langchain.utilities.arxiv import ArxivAPIWrapper
 from langchain.sync_utils import make_async
@@ -15,8 +14,8 @@ from langchain.sync_utils import make_async
 class ArxivQueryRun(BaseTool):
     """Tool that adds the capability to search using the Arxiv API."""
 
-    name = "arxiv"
-    description = (
+    name: str = "arxiv"
+    description: str = (
         "A wrapper around Arxiv.org "
         "Useful for when you need to answer questions about Physics, Mathematics, "
         "Computer Science, Quantitative Biology, Quantitative Finance, Statistics, "
