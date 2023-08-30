@@ -13,8 +13,8 @@ from langchain.sync_utils import make_async
 class WikipediaQueryRun(BaseTool):
     """Tool that adds the capability to search using the Wikipedia API."""
 
-    name = "Wikipedia"
-    description = (
+    name: str = "Wikipedia"
+    description: str = (
         "A wrapper around Wikipedia. "
         "Useful for when you need to answer general questions about "
         "people, places, companies, facts, historical events, or other subjects. "

@@ -5,7 +5,6 @@ from functools import partial
 from typing import Any, Callable, Dict, List, Optional
 
 import yaml
-from pydantic import Field
 from pydantic import BaseModel
 from langchain.callbacks.manager import Callbacks
 
@@ -36,6 +35,7 @@ from langchain.chains.llm import LLMChain
 from langchain.llms.openai import OpenAI
 from langchain.memory import ReadOnlySharedMemory
 from langchain.prompts import PromptTemplate
+from langchain.pydantic_v1 import Field
 from langchain.requests import RequestsWrapper
 from langchain.schema import BasePromptTemplate
 from langchain.tools.base import BaseTool
@@ -118,7 +118,7 @@ class RequestsGetToolWithParsing(BaseRequestsTool, BaseTool):
 
 
 class RequestsPostToolWithParsing(BaseRequestsTool, BaseTool):
-    name = "requests.post"
+    name: str = "requests.post"
     description = REQUESTS_POST_TOOL_DESCRIPTION
 
     response_length: Optional[int] = MAX_RESPONSE_LENGTH
@@ -130,10 +130,9 @@ class RequestsPostToolWithParsing(BaseRequestsTool, BaseTool):
         data = maybe_fix_json(text)
         response = self.requests_wrapper.post(data["url"], data["data"])
         response = response[: self.response_length]
-        # return self.llm_chain.predict(
-        #     response=response, instructions=data["output_instructions"]
-        # ).strip()
-        return response
+        return self.llm_chain.predict(
+            response=response, instructions=data["output_instructions"]
+        ).strip()
 
     async def _arun(self, text: str) -> str:
         # raise NotImplementedError()
@@ -153,7 +152,7 @@ class RequestsPostToolWithParsing(BaseRequestsTool, BaseTool):
 
 
 class RequestsPatchToolWithParsing(BaseRequestsTool, BaseTool):
-    name = "requests.patch"
+    name: str = "requests.patch"
     description = REQUESTS_PATCH_TOOL_DESCRIPTION
 
     response_length: Optional[int] = MAX_RESPONSE_LENGTH
@@ -165,10 +164,9 @@ class RequestsPatchToolWithParsing(BaseRequestsTool, BaseTool):
         data = maybe_fix_json(text)
         response = self.requests_wrapper.patch(data["url"], data["data"])
         response = response[: self.response_length]
-        # return self.llm_chain.predict(
-        #     response=response, instructions=data["output_instructions"]
-        # ).strip()
-        return response
+        return self.llm_chain.predict(
+            response=response, instructions=data["output_instructions"]
+        ).strip()
 
     async def _arun(self, text: str) -> str:
         # raise NotImplementedError()
@@ -188,7 +186,7 @@ class RequestsPatchToolWithParsing(BaseRequestsTool, BaseTool):
 
 
 class RequestsDeleteToolWithParsing(BaseRequestsTool, BaseTool):
-    name = "requests.delete"
+    name: str = "requests.delete"
     description = REQUESTS_DELETE_TOOL_DESCRIPTION
 
     response_length: Optional[int] = MAX_RESPONSE_LENGTH
@@ -200,10 +198,9 @@ class RequestsDeleteToolWithParsing(BaseRequestsTool, BaseTool):
         data = maybe_fix_json(text)
         response = self.requests_wrapper.delete(data["url"])
         response = response[: self.response_length]
-        # return self.llm_chain.predict(
-        #     response=response, instructions=data["output_instructions"]
-        # ).strip()
-        return response
+        return self.llm_chain.predict(
+            response=response, instructions=data["output_instructions"]
+        ).strip()
 
     async def _arun(self, text: str) -> str:
         # raise NotImplementedError()
