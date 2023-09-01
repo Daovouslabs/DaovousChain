@@ -245,6 +245,7 @@ class ApiPlanner(BaseModel):
 def _create_api_planner_tool(
     api_spec: ReducedOpenAPISpec, 
     llm: BaseLanguageModel, 
+    callback_manager: BaseCallbackManager,
 ) -> Tool:
     endpoint_descriptions = [
         f"{name} {description}\n" for name, description, _ in api_spec.endpoints
@@ -254,7 +255,7 @@ def _create_api_planner_tool(
         input_variables=["query"],
         partial_variables={"endpoints": "- " + "- ".join(endpoint_descriptions)},
     )
-    chain = LLMChain(llm=llm, prompt=prompt)
+    chain = LLMChain(llm=llm, prompt=prompt, callback_manager=callback_manager)
     planner = ApiPlanner(llm_chain=chain, stop=['<END_OF_PLAN>'])
     tool = Tool(
         name=API_PLANNER_TOOL_NAME,
@@ -270,15 +271,16 @@ def _create_api_controller_agent(
     api_docs: str,
     requests_wrapper: RequestsWrapper,
     llm: BaseLanguageModel,
+    callback_manager: BaseCallbackManager,
 ) -> AgentExecutor:
     get_llm_chain = LLMChain(llm=llm, prompt=PARSING_GET_PROMPT)
     post_llm_chain = LLMChain(llm=llm, prompt=PARSING_POST_PROMPT)
     tools: List[BaseTool] = [
         RequestsGetToolWithParsing(
-            requests_wrapper=requests_wrapper, llm_chain=get_llm_chain
+            requests_wrapper=requests_wrapper, llm_chain=get_llm_chain, callback_manager=callback_manager
         ),
         RequestsPostToolWithParsing(
-            requests_wrapper=requests_wrapper, llm_chain=post_llm_chain
+            requests_wrapper=requests_wrapper, llm_chain=post_llm_chain, callback_manager=callback_manager
         ),
     ]
     prompt = PromptTemplate(
@@ -304,6 +306,7 @@ def _create_api_controller_tool(
     api_spec: ReducedOpenAPISpec,
     requests_wrapper: RequestsWrapper,
     llm: BaseLanguageModel,
+    callback_manager: BaseCallbackManager,
 ) -> Tool:
     """Expose controller as a tool.
 
@@ -329,7 +332,7 @@ def _create_api_controller_tool(
                 raise ValueError(f"{endpoint_name} endpoint does not exist.")
             docs_str += f"== Docs for {endpoint_name} == \n{yaml.dump(docs)}\n"
 
-        agent = _create_api_controller_agent(base_url, docs_str, requests_wrapper, llm)
+        agent = _create_api_controller_agent(base_url, docs_str, requests_wrapper, llm, callback_manager)
         return agent.run(plan_str)
     
     async def _acreate_and_run_api_controller_agent(plan_str: str) -> str:
@@ -347,7 +350,7 @@ def _create_api_controller_tool(
                 raise ValueError(f"{endpoint_name} endpoint does not exist.")
             docs_str += f"== Docs for {endpoint_name} == \n{yaml.dump(docs)}\n"
 
-        agent = _create_api_controller_agent(base_url, docs_str, requests_wrapper, llm)
+        agent = _create_api_controller_agent(base_url, docs_str, requests_wrapper, llm, callback_manager)
         return await agent.arun(plan_str)
 
     return Tool(
@@ -377,8 +380,8 @@ def create_openapi_agent(
     that invokes a controller with its plan. This is to keep the planner simple.
     """
     tools = [
-        _create_api_planner_tool(api_spec, llm),
-        _create_api_controller_tool(api_spec, requests_wrapper, llm),
+        _create_api_planner_tool(api_spec, llm, callback_manager),
+        _create_api_controller_tool(api_spec, requests_wrapper, llm, callback_manager),
     ]
     prompt = PromptTemplate(
         template=API_ORCHESTRATOR_PROMPT,

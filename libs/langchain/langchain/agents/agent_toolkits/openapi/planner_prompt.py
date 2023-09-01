@@ -90,13 +90,13 @@ TOOLS DESCRIPTIONS:
 Starting below, you should follow this format:
 
 Plan: the plan of API calls to execute
-Thought: you should always think about what to do
+Thought: consider previous steps and original plan, constructive self-criticism, Through evaluation, decide whether the plan is completed or not, don't repeat the same content. The thought should be consistent with the following actions. For example, when you feel that you have achieved the final result, do not exert energy to perform other actions.
 Action: the action to take, which can not be empty and MUST be one of the tools: {tool_names}
 Action Input: the input to the action, MUST be a valid json blob which can be parsed. And MUST meet the requirements of the endpoints for parameters.
 Observation: the output of the action
 ... (this Thought/Action/Action Input/Observation can repeat N times)
 Thought: I am finished executing the plan (or, I cannot finish executing the plan)
-Final Answer: the final output(as detailed as possible) from executing the plan success or failure. At the end of Final Answer, say '<|im_end|>'.
+Final Answer: The final results according to "Observation" or copy from "Observation" if necessary. Cover as much information in "Observation" as possible. At the end of Final Answer, say '<|im_end|>'.
 
 Begin! 
 
@@ -106,8 +106,10 @@ Important Reminders:
 1. If the plan has been executed successfully and returned a result, finish the plan and directly response based on the results. Some of the results may not always turn out to be correct and require you to make careful consideration in making decisions. Then please detail your workflow including the used steps and results for original plan in your friendly tone. Please filter out information that is not relevant to your plan. Your SHOULD tell me the complete path or urls of files in inference results if necessary.
 2. You MUST NOT to get image, audio, and video when you have got related urls.
 3. Just execute the plan, don't do redundant things.
-4. Your SHOULD tell me the complete path or urls of files in inference results if necessary.
-5. "Action" Must be one of tools mentioned above.
+4. Your SHOULD tell me the complete path or urls of files in "Observation" if necessary.
+5. "Action" MUST be one of tools mentioned above.
+6. "Action" and "Action Input" MUST appear in pairs, and "Action Input" MUST follow "Action".
+7. Don't repeat the same "Action" and "Action Input".
 
 Thought:
 {agent_scratchpad}
@@ -139,7 +141,7 @@ Action Input: the input to the action, include the copy of user input/query if n
 Observation: the result of the action
 ... (this Thought/Action/Action Input/Observation can repeat N times)
 Thought: I am finished executing a plan and have the information the user asked for or the data the user asked to create
-Final Answer: the final output from executing the plan. At the end of Final Answer, say '<|im_end|>'.
+Final Answer: The final results according to all in "Observation" or copy from "Observation" if necessary. At the end of Final Answer, say '<|im_end|>'.
 
 
 Example:
@@ -176,12 +178,12 @@ For example, the content of multimedia files whose path or url suffix is *.png, 
 
 PARSING_GET_PROMPT = PromptTemplate(
     template="""Here is an API response:\n\n{response}\n\n====
-Your task is to extract {instructions} from API response mentioned above in your friendly tone and human-readable typography.
+Your task is to extract all the {instructions} from API response mentioned above in your friendly tone and human-readable typography.
 No additional information unrelated to the above instructions is required.
 If the API response mentioned above indicates an error, you should instead output a summary of the error.
 Donot generate any code.
 Don't make anything up out of thin air, follow instructions above exactly, or summarize error.
-When a url is included in the results, please describe what it is, to help the next task better understand the input.
+When a url is included in the results, please describe what it is and copy it, to help the next task better understand the input.
 At the end of parse, say '<END_OF_PARSE>'.
 
 Output:""",
@@ -197,12 +199,12 @@ Always use double quotes for strings in the json string."""
 
 PARSING_POST_PROMPT = PromptTemplate(
     template="""Here is an API response:\n\n{response}\n\n====
-Your task is to extract {instructions} from API response mentioned above in your friendly tone and human-readable typography.
+Your task is to extract all the {instructions} from API response mentioned above in your friendly tone and human-readable typography.
 No additional information unrelated to the above instructions is required.
 If the API response mentioned above indicates an error, you should instead output a summary of the error.
 Donot generate any code.
 Don't make anything up out of thin air, follow instructions above exactly, or summarize error.
-When a url is included in the results, please describe what it is, to help the next task better understand the input.
+When a url is included in the results, please describe what it is and copy it, to help the next task better understand the input.
 At the end of parse, say '<END_OF_PARSE>'.
 
 Output:""",
@@ -218,12 +220,12 @@ Always use double quotes for strings in the json string."""
 
 PARSING_PATCH_PROMPT = PromptTemplate(
     template="""Here is an API response:\n\n{response}\n\n====
-Your task is to extract {instructions} from API response mentioned above in your friendly tone and human-readable typography.
+Your task is to extract all the {instructions} from API response mentioned above in your friendly tone and human-readable typography.
 No additional information unrelated to the above instructions is required.
 If the API response mentioned above indicates an error, you should instead output a summary of the error.
 Donot generate any code.
 Don't make anything up out of thin air, follow instructions above exactly, or summarize error.
-When a url is included in the results, please describe what it is, to help the next task better understand the input.
+When a url is included in the results, please describe what it is and copy it, to help the next task better understand the input.
 At the end of parse, say '<END_OF_PARSE>'.
 
 Output:""",
@@ -239,12 +241,12 @@ ONLY USE THIS TOOL IF THE USER HAS SPECIFICALLY REQUESTED TO DELETE SOMETHING.""
 
 PARSING_DELETE_PROMPT = PromptTemplate(
     template="""Here is an API response:\n\n{response}\n\n====
-Your task is to extract {instructions} from API response mentioned above in your friendly tone and human-readable typography.
+Your task is to extract all the {instructions} from API response mentioned above in your friendly tone and human-readable typography.
 No additional information unrelated to the above instructions is required.
 If the API response mentioned above indicates an error, you should instead output a summary of the error.
 Donot generate any code.
 Don't make anything up out of thin air, follow instructions above exactly, or summarize error.
-When a url is included in the results, please describe what it is, to help the next task better understand the input.
+When a url is included in the results, please describe what it is and copy it, to help the next task better understand the input.
 At the end of parse, say '<END_OF_PARSE>'.
 
 Output:""",
