@@ -1,6 +1,7 @@
 import re
 
 import chainlit as cl
+import mimetypes
 
 async def send_medias_message(message):
     image_urls, audio_urls, video_urls = extract_medias(message)
@@ -34,6 +35,10 @@ def extract_medias(message):
             video_urls.append(match.group(0))
 
     return image_urls, audio_urls, video_urls
+
+def get_url_type(url):
+    mimetype, encoding = mimetypes.guess_type(url)
+    return mimetype
 
 def is_media(url):
     pattern = re.compile(r"(http(s?):|\/)?([\.\/_\w:-])*?\.(jpg|jpeg|tiff|gif|png|flac|wav|mp4)")

@@ -47,6 +47,10 @@ class MRKLOutputParser(AgentOutputParser):
             return AgentFinish(
                 {"output": text.split(FINAL_ANSWER_ACTION)[-1].strip()}, text
             )
+        else:
+            return AgentFinish(
+                {"output": text.strip()}, text
+            )
 
         if not re.search(r"Action\s*\d*\s*:[\s]*(.*?)", text, re.DOTALL):
             raise OutputParserException(

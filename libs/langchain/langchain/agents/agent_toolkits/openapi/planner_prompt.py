@@ -96,7 +96,7 @@ Action Input: the input to the action, MUST be a valid json blob which can be pa
 Observation: the output of the action
 ... (this Thought/Action/Action Input/Observation can repeat N times)
 Thought: I am finished executing the plan (or, I cannot finish executing the plan)
-Final Answer: The final results according to "Observation" or copy from "Observation" if necessary. Cover as much information in "Observation" as possible. At the end of Final Answer, say '<|im_end|>'.
+Final Answer: The final results according to "Observation" or copy from "Observation" if necessary. Cover as much information in "Observation" as possible. Or error/failure summary. At the end of Final Answer, say '<|im_end|>'.
 
 Begin! 
 
