@@ -110,7 +110,7 @@ class RequestsGetToolWithParsing(BaseRequestsTool, BaseTool):
         response = response[: self.response_length]
 
         response = str(await self.llm_chain.apredict(
-            response=response, instructions=_build_output_instructions(data["output_instructions"]), stop=['<END_OF_PARSE>']
+            response=response, instructions=_build_output_instructions(data.get("output_instructions", 'results')), stop=['<END_OF_PARSE>']
         )).strip()
         await send_medias_message(response)
 
@@ -144,7 +144,7 @@ class RequestsPostToolWithParsing(BaseRequestsTool, BaseTool):
         response = response[: self.response_length]
 
         response = str(await self.llm_chain.apredict(
-            response=response, instructions=_build_output_instructions(data["output_instructions"]), stop=['<END_OF_PARSE>']
+            response=response, instructions=_build_output_instructions(data.get("output_instructions", 'results')), stop=['<END_OF_PARSE>']
         )).strip()
         await send_medias_message(response)
 
@@ -178,7 +178,7 @@ class RequestsPatchToolWithParsing(BaseRequestsTool, BaseTool):
         response = response[: self.response_length]
 
         response = str(await self.llm_chain.apredict(
-            response=response, instructions=_build_output_instructions(data["output_instructions"]), stop=['<END_OF_PARSE>']
+            response=response, instructions=_build_output_instructions(data.get("output_instructions", 'results')), stop=['<END_OF_PARSE>']
         )).strip()
         await send_medias_message(response)
 
@@ -212,7 +212,7 @@ class RequestsDeleteToolWithParsing(BaseRequestsTool, BaseTool):
         response = response[: self.response_length]
 
         response = str(await self.llm_chain.apredict(
-            response=response, instructions=_build_output_instructions(data["output_instructions"]), stop=['<END_OF_PARSE>']
+            response=response, instructions=_build_output_instructions(data.get("output_instructions", 'results')), stop=['<END_OF_PARSE>']
         )).strip()
         await send_medias_message(response)
 

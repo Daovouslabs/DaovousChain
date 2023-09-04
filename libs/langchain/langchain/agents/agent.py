@@ -647,7 +647,7 @@ class AgentExecutor(Chain):
     return_intermediate_steps: bool = False
     """Whether to return the agent's trajectory of intermediate steps
     at the end in addition to the final output."""
-    max_iterations: Optional[int] = 15
+    max_iterations: Optional[int] = 5
     """The maximum number of steps to take before ending the execution
     loop.
     
