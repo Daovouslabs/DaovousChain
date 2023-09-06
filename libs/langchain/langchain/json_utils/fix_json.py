@@ -4,6 +4,9 @@ import re
 
 def maybe_fix_json(text):
 	text = text.strip()
+	if text[-1] != "}":
+		text += "}"
+	text = re.sub(",+\s*}$", "}", text)
 	try:
 		data = json.loads(text)
 	except json.JSONDecodeError as e:
