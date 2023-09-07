@@ -60,11 +60,11 @@ Avaliable Endpoints:
 ----
 
 You should:
-1) evaluate whether the user query can be solved by the API documentated below. If no, say why.
-2) if yes, generate a plan of API calls and say what they are doing step by step.
-3) If the plan includes a DELETE call, you should always return an ask from the User for authorization first unless the User has specifically asked to delete something.
-4) Don't make contradictory plans, such as when you make a plan and then regret that you can't make it.
-5) Just make plans related to user query, don't ask and answer yourself.
+1) evaluate whether the user query can be solved by the API documentated below. If no, say why. if yes, generate a plan of API calls and say what they are doing step by step.
+2) If the plan includes a DELETE call, you should always return an ask from the User for authorization first unless the User has specifically asked to delete something.
+3) Don't make contradictory plans, such as when you make a plan and then regret that you can't make it.
+4) Just make plans related to user query, don't ask and answer yourself.
+5) Only available endpoints mentioned above can be used.
 
 User query: {query}
 Plan:"""
