@@ -90,31 +90,39 @@ class RequestsGetToolWithParsing(BaseRequestsTool, BaseTool):
     )
 
     def _run(self, text: str) -> str:
-        data = maybe_fix_json(text)
-        data_params = data.get("params")
-        response = self.requests_wrapper.get(data["url"], params=data_params)
-        response = response[: self.response_length]
-        # return self.llm_chain.predict(
-        #     response=response, instructions=data["output_instructions"]
-        # ).strip()
-        return response
+        try:
+            data = maybe_fix_json(text)
+            if not data:
+                return "Can not parse input!"
+            data_params = data.get("params")
+            response = self.requests_wrapper.get(data["url"], params=data_params)
+            response = response[: self.response_length]
+            # return self.llm_chain.predict(
+            #     response=response, instructions=data["output_instructions"]
+            # ).strip()
+            return response
+        except Exception as e:
+            return str(e)
 
     async def _arun(self, text: str) -> str:
-        # raise NotImplementedError()
-        # return await make_async(self._run)(text)
-        data = maybe_fix_json(text)
-        if is_media(data['url']):
-            return f"Do not need to get the content of {data['url']}, itself is the result."
-        data_params = data.get("params")
-        response = await self.requests_wrapper.aget(data["url"], params=data_params)
-        response = response[: self.response_length]
+        try:
+            data = maybe_fix_json(text)
+            if not data:
+                return "Can not parse input!"
+            if is_media(data['url']):
+                return f"Do not need to get the content of {data['url']}, itself is the result."
+            data_params = data.get("params")
+            response = await self.requests_wrapper.aget(data["url"], params=data_params)
+            response = response[: self.response_length]
 
-        response = str(await self.llm_chain.apredict(
-            response=response, instructions=_build_output_instructions(data.get("output_instructions", 'results')), stop=['<END_OF_PARSE>']
-        )).strip()
-        await send_medias_message(response)
+            response = str(await self.llm_chain.apredict(
+                response=response, instructions=_build_output_instructions(data.get("output_instructions", 'results')), stop=['<END_OF_PARSE>']
+            )).strip()
+            await send_medias_message(response)
 
-        return response
+            return response
+        except Exception as e:
+            return str(e)
 
 
 class RequestsPostToolWithParsing(BaseRequestsTool, BaseTool):
@@ -135,20 +143,23 @@ class RequestsPostToolWithParsing(BaseRequestsTool, BaseTool):
         ).strip()
 
     async def _arun(self, text: str) -> str:
-        # raise NotImplementedError()
-        # return await make_async(self._run)(text)
-        data = maybe_fix_json(text)
-        if is_media(data['url']):
-            return f"Do not need to get the content of {data['url']}, itself is the result."
-        response = await self.requests_wrapper.apost(data["url"], data["data"])
-        response = response[: self.response_length]
+        try:
+            data = maybe_fix_json(text)
+            if not data:
+                return "Can not parse input!"
+            if is_media(data['url']):
+                return f"Do not need to get the content of {data['url']}, itself is the result."
+            response = await self.requests_wrapper.apost(data["url"], data["data"])
+            response = response[: self.response_length]
 
-        response = str(await self.llm_chain.apredict(
-            response=response, instructions=_build_output_instructions(data.get("output_instructions", 'results')), stop=['<END_OF_PARSE>']
-        )).strip()
-        await send_medias_message(response)
+            response = str(await self.llm_chain.apredict(
+                response=response, instructions=_build_output_instructions(data.get("output_instructions", 'results')), stop=['<END_OF_PARSE>']
+            )).strip()
+            await send_medias_message(response)
 
-        return response
+            return response
+        except Exception as e:
+            return str(e)
 
 
 class RequestsPatchToolWithParsing(BaseRequestsTool, BaseTool):
@@ -169,20 +180,23 @@ class RequestsPatchToolWithParsing(BaseRequestsTool, BaseTool):
         ).strip()
 
     async def _arun(self, text: str) -> str:
-        # raise NotImplementedError()
-        # return await make_async(self._run)(text)
-        data = maybe_fix_json(text)
-        if is_media(data['url']):
-            return f"Do not need to get the content of {data['url']}, itself is the result."
-        response = await self.requests_wrapper.apatch(data["url"], data["data"])
-        response = response[: self.response_length]
+        try:
+            data = maybe_fix_json(text)
+            if not data:
+                return "Can not parse input!"
+            if is_media(data['url']):
+                return f"Do not need to get the content of {data['url']}, itself is the result."
+            response = await self.requests_wrapper.apatch(data["url"], data["data"])
+            response = response[: self.response_length]
 
-        response = str(await self.llm_chain.apredict(
-            response=response, instructions=_build_output_instructions(data.get("output_instructions", 'results')), stop=['<END_OF_PARSE>']
-        )).strip()
-        await send_medias_message(response)
+            response = str(await self.llm_chain.apredict(
+                response=response, instructions=_build_output_instructions(data.get("output_instructions", 'results')), stop=['<END_OF_PARSE>']
+            )).strip()
+            await send_medias_message(response)
 
-        return response
+            return response
+        except Exception as e:
+            return str(e)
 
 
 class RequestsDeleteToolWithParsing(BaseRequestsTool, BaseTool):
@@ -203,20 +217,23 @@ class RequestsDeleteToolWithParsing(BaseRequestsTool, BaseTool):
         ).strip()
 
     async def _arun(self, text: str) -> str:
-        # raise NotImplementedError()
-        # return await make_async(self._run)(text)
-        data = maybe_fix_json(text)
-        if is_media(data['url']):
-            return f"Do not need to get the content of {data['url']}, itself is the result."
-        response = await self.requests_wrapper.adelete(data["url"])
-        response = response[: self.response_length]
+        try:
+            data = maybe_fix_json(text)
+            if not data:
+                return "Can not parse input!"
+            if is_media(data['url']):
+                return f"Do not need to get the content of {data['url']}, itself is the result."
+            response = await self.requests_wrapper.adelete(data["url"])
+            response = response[: self.response_length]
 
-        response = str(await self.llm_chain.apredict(
-            response=response, instructions=_build_output_instructions(data.get("output_instructions", 'results')), stop=['<END_OF_PARSE>']
-        )).strip()
-        await send_medias_message(response)
+            response = str(await self.llm_chain.apredict(
+                response=response, instructions=_build_output_instructions(data.get("output_instructions", 'results')), stop=['<END_OF_PARSE>']
+            )).strip()
+            await send_medias_message(response)
 
-        return response
+            return response
+        except Exception as e:
+            return str(e)
 
 class ApiPlanner(BaseModel):
     llm_chain: LLMChain
