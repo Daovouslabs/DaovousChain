@@ -7,7 +7,7 @@ def maybe_fix_json(text):
 		text = text.strip()
 		text = re.sub(",+\s*}$", "}", text)
 		action_match1 = re.search(r"```json(.*?)```?", text, re.DOTALL) or re.search(r"```(.*?)```?", text, re.DOTALL) or re.search(r"```(.*?)$", text, re.DOTALL)
-		action_match2 = re.search(r"\{(.*?)\}", text, re.DOTALL) or re.search(r"\{(.*?)$", text, re.DOTALL)
+		action_match2 = re.search(r"\{(.*?)\}\s*$", text, re.DOTALL) or re.search(r"\{(.*?)$", text, re.DOTALL)
 		if action_match1 is not None:
 			json_text = action_match1.group(1).strip()
 		elif action_match2 is not None:
