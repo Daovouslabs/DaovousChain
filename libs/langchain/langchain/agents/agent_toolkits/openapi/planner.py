@@ -42,7 +42,7 @@ from langchain.tools.base import BaseTool
 from langchain.tools.requests.tool import BaseRequestsTool
 from langchain.sync_utils import make_async
 from langchain.json_utils import maybe_fix_json
-from langchain.media_utils import send_medias_message, is_media
+from langchain.media_utils import is_media
 #
 # Requests tools with LLM-instructed extraction of truncated responses.
 #
@@ -118,7 +118,6 @@ class RequestsGetToolWithParsing(BaseRequestsTool, BaseTool):
             response = str(await self.llm_chain.apredict(
                 response=response, instructions=_build_output_instructions(data.get("output_instructions", 'results')), stop=['<END_OF_PARSE>']
             )).strip()
-            await send_medias_message(response)
 
             return response
         except Exception as e:
@@ -155,7 +154,6 @@ class RequestsPostToolWithParsing(BaseRequestsTool, BaseTool):
             response = str(await self.llm_chain.apredict(
                 response=response, instructions=_build_output_instructions(data.get("output_instructions", 'results')), stop=['<END_OF_PARSE>']
             )).strip()
-            await send_medias_message(response)
 
             return response
         except Exception as e:
@@ -192,7 +190,6 @@ class RequestsPatchToolWithParsing(BaseRequestsTool, BaseTool):
             response = str(await self.llm_chain.apredict(
                 response=response, instructions=_build_output_instructions(data.get("output_instructions", 'results')), stop=['<END_OF_PARSE>']
             )).strip()
-            await send_medias_message(response)
 
             return response
         except Exception as e:
@@ -229,7 +226,6 @@ class RequestsDeleteToolWithParsing(BaseRequestsTool, BaseTool):
             response = str(await self.llm_chain.apredict(
                 response=response, instructions=_build_output_instructions(data.get("output_instructions", 'results')), stop=['<END_OF_PARSE>']
             )).strip()
-            await send_medias_message(response)
 
             return response
         except Exception as e:
