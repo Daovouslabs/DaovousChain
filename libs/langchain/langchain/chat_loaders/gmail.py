@@ -2,8 +2,10 @@ import base64
 import re
 from typing import Any, Iterator
 
-from langchain.chat_loaders.base import BaseChatLoader, ChatSession
-from langchain.schema.messages import HumanMessage
+from langchain_core.chat_sessions import ChatSession
+from langchain_core.messages import HumanMessage
+
+from langchain.chat_loaders.base import BaseChatLoader
 
 
 def _extract_email_content(msg: Any) -> HumanMessage:
@@ -62,7 +64,7 @@ def _get_message_data(service: Any, message: Any) -> ChatSession:
 
 
 class GMailLoader(BaseChatLoader):
-    """This loader goes over how to load data from GMail.
+    """Load data from `GMail`.
 
     There are many ways you could want to load data from GMail.
     This loader is currently fairly opinionated in how to do so.

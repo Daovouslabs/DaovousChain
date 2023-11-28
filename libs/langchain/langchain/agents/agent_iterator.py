@@ -18,6 +18,11 @@ from typing import (
     Union,
 )
 
+from langchain_core.agents import AgentAction, AgentFinish
+from langchain_core.load.dump import dumpd
+from langchain_core.outputs import RunInfo
+from langchain_core.utils.input import get_color_mapping
+
 from langchain.callbacks.manager import (
     AsyncCallbackManager,
     AsyncCallbackManagerForChainRun,
@@ -25,11 +30,9 @@ from langchain.callbacks.manager import (
     CallbackManagerForChainRun,
     Callbacks,
 )
-from langchain.load.dump import dumpd
-from langchain.schema import RUN_KEY, AgentAction, AgentFinish, RunInfo
+from langchain.schema import RUN_KEY
 from langchain.tools import BaseTool
 from langchain.utilities.asyncio import asyncio_timeout
-from langchain.utils.input import get_color_mapping
 
 if TYPE_CHECKING:
     from langchain.agents.agent import AgentExecutor
@@ -282,7 +285,7 @@ class AgentExecutorIterator(BaseAgentExecutorIterator):
             return self._call_next()
         except StopIteration:
             raise
-        except (KeyboardInterrupt, Exception) as e:
+        except BaseException as e:
             if self.run_manager:
                 self.run_manager.on_chain_error(e)
             raise
@@ -304,7 +307,7 @@ class AgentExecutorIterator(BaseAgentExecutorIterator):
             await self.timeout_manager.__aexit__(None, None, None)
             self.timeout_manager = None
             return await self._astop()
-        except (KeyboardInterrupt, Exception) as e:
+        except BaseException as e:
             if self.run_manager:
                 assert isinstance(self.run_manager, AsyncCallbackManagerForChainRun)
                 await self.run_manager.on_chain_error(e)

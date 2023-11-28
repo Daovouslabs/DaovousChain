@@ -3,9 +3,9 @@ from __future__ import annotations
 from typing import TYPE_CHECKING
 
 import pytest
+from langchain_core.documents import Document
 
 from langchain.document_loaders import PolarsDataFrameLoader
-from langchain.schema import Document
 
 if TYPE_CHECKING:
     import polars as pl
@@ -34,8 +34,6 @@ def test_load_returns_list_of_documents(sample_data_frame: pl.DataFrame) -> None
 def test_load_converts_dataframe_columns_to_document_metadata(
     sample_data_frame: pl.DataFrame,
 ) -> None:
-    import polars as pl
-
     loader = PolarsDataFrameLoader(sample_data_frame)
     docs = loader.load()
 
