@@ -1,20 +1,20 @@
+import json
 import logging
 import threading
 from typing import Any, Dict, List, Mapping, Optional
 
 import requests
+from langchain_core.messages import (
+    AIMessage,
+    BaseMessage,
+    ChatMessage,
+    HumanMessage,
+)
+from langchain_core.outputs import ChatGeneration, ChatResult
+from langchain_core.pydantic_v1 import root_validator
 
 from langchain.callbacks.manager import CallbackManagerForLLMRun
 from langchain.chat_models.base import BaseChatModel
-from langchain.pydantic_v1 import root_validator
-from langchain.schema import (
-    AIMessage,
-    BaseMessage,
-    ChatGeneration,
-    ChatMessage,
-    ChatResult,
-    HumanMessage,
-)
 from langchain.utils import get_from_dict_or_env
 
 logger = logging.getLogger(__name__)
@@ -56,6 +56,9 @@ class ErnieBotChat(BaseChatModel):
 
     """
 
+    ernie_api_base: Optional[str] = None
+    """Baidu application custom endpoints"""
+
     ernie_client_id: Optional[str] = None
     """Baidu application client id"""
 
@@ -84,6 +87,9 @@ class ErnieBotChat(BaseChatModel):
 
     @root_validator()
     def validate_environment(cls, values: Dict) -> Dict:
+        values["ernie_api_base"] = get_from_dict_or_env(
+            values, "ernie_api_base", "ERNIE_API_BASE", "https://aip.baidubce.com"
+        )
         values["ernie_client_id"] = get_from_dict_or_env(
             values,
             "ernie_client_id",
@@ -97,13 +103,21 @@ class ErnieBotChat(BaseChatModel):
         return values
 
     def _chat(self, payload: object) -> dict:
-        base_url = "https://aip.baidubce.com/rpc/2.0/ai_custom/v1/wenxinworkshop/chat"
-        if self.model_name == "ERNIE-Bot-turbo":
-            url = f"{base_url}/eb-instant"
-        elif self.model_name == "ERNIE-Bot":
-            url = f"{base_url}/completions"
+        base_url = f"{self.ernie_api_base}/rpc/2.0/ai_custom/v1/wenxinworkshop/chat"
+        model_paths = {
+            "ERNIE-Bot-turbo": "eb-instant",
+            "ERNIE-Bot": "completions",
+            "ERNIE-Bot-4": "completions_pro",
+            "BLOOMZ-7B": "bloomz_7b1",
+            "Llama-2-7b-chat": "llama_2_7b",
+            "Llama-2-13b-chat": "llama_2_13b",
+            "Llama-2-70b-chat": "llama_2_70b",
+        }
+        if self.model_name in model_paths:
+            url = f"{base_url}/{model_paths[self.model_name]}"
         else:
             raise ValueError(f"Got unknown model_name {self.model_name}")
+
         resp = requests.post(
             url,
             timeout=self.request_timeout,
@@ -118,7 +132,7 @@ class ErnieBotChat(BaseChatModel):
     def _refresh_access_token_with_lock(self) -> None:
         with self._lock:
             logger.debug("Refreshing access token")
-            base_url: str = "https://aip.baidubce.com/oauth/2.0/token"
+            base_url: str = f"{self.ernie_api_base}/oauth/2.0/token"
             resp = requests.post(
                 base_url,
                 timeout=10,
@@ -165,9 +179,15 @@ class ErnieBotChat(BaseChatModel):
         return self._create_chat_result(resp)
 
     def _create_chat_result(self, response: Mapping[str, Any]) -> ChatResult:
-        generations = [
-            ChatGeneration(message=AIMessage(content=response.get("result")))
-        ]
+        if "function_call" in response:
+            fc_str = '{{"function_call": {}}}'.format(
+                json.dumps(response.get("function_call"))
+            )
+            generations = [ChatGeneration(message=AIMessage(content=fc_str))]
+        else:
+            generations = [
+                ChatGeneration(message=AIMessage(content=response.get("result")))
+            ]
         token_usage = response.get("usage", {})
         llm_output = {"token_usage": token_usage, "model_name": self.model_name}
         return ChatResult(generations=generations, llm_output=llm_output)

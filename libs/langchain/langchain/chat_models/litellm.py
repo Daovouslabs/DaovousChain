@@ -12,33 +12,41 @@ from typing import (
     Mapping,
     Optional,
     Tuple,
+    Type,
     Union,
 )
 
-from langchain.callbacks.manager import (
-    AsyncCallbackManagerForLLMRun,
-    CallbackManagerForLLMRun,
-)
-from langchain.chat_models.base import BaseChatModel
-from langchain.llms.base import create_base_retry_decorator
-from langchain.pydantic_v1 import Field, root_validator
-from langchain.schema import (
-    ChatGeneration,
-    ChatResult,
-)
-from langchain.schema.messages import (
+from langchain_core.messages import (
     AIMessage,
     AIMessageChunk,
     BaseMessage,
     BaseMessageChunk,
     ChatMessage,
     ChatMessageChunk,
+    FunctionMessage,
+    FunctionMessageChunk,
     HumanMessage,
     HumanMessageChunk,
     SystemMessage,
     SystemMessageChunk,
 )
-from langchain.schema.output import ChatGenerationChunk
+from langchain_core.outputs import (
+    ChatGeneration,
+    ChatGenerationChunk,
+    ChatResult,
+)
+from langchain_core.pydantic_v1 import Field, root_validator
+
+from langchain.callbacks.manager import (
+    AsyncCallbackManagerForLLMRun,
+    CallbackManagerForLLMRun,
+)
+from langchain.chat_models.base import (
+    BaseChatModel,
+    agenerate_from_stream,
+    generate_from_stream,
+)
+from langchain.llms.base import create_base_retry_decorator
 from langchain.utils import get_from_dict_or_env
 
 logger = logging.getLogger(__name__)
@@ -48,39 +56,6 @@ class ChatLiteLLMException(Exception):
     """Error with the `LiteLLM I/O` library"""
 
 
-def _truncate_at_stop_tokens(
-    text: str,
-    stop: Optional[List[str]],
-) -> str:
-    """Truncates text at the earliest stop token found."""
-    if stop is None:
-        return text
-
-    for stop_token in stop:
-        stop_token_idx = text.find(stop_token)
-        if stop_token_idx != -1:
-            text = text[:stop_token_idx]
-    return text
-
-
-class FunctionMessage(BaseMessage):
-    """Message for passing the result of executing a function back to a model."""
-
-    name: str
-    """The name of the function that was executed."""
-
-    @property
-    def type(self) -> str:
-        """Type of the message, used for serialization."""
-        return "function"
-
-
-class FunctionMessageChunk(FunctionMessage, BaseMessageChunk):
-    """Message Chunk for passing the result of executing a function back to a model."""
-
-    pass
-
-
 def _create_retry_decorator(
     llm: ChatLiteLLM,
     run_manager: Optional[
@@ -88,14 +63,13 @@ def _create_retry_decorator(
     ] = None,
 ) -> Callable[[Any], Any]:
     """Returns a tenacity retry decorator, preconfigured to handle PaLM exceptions"""
-    import openai
+    import litellm
 
     errors = [
-        openai.error.Timeout,
-        openai.error.APIError,
-        openai.error.APIConnectionError,
-        openai.error.RateLimitError,
-        openai.error.ServiceUnavailableError,
+        litellm.Timeout,
+        litellm.APIError,
+        litellm.APIConnectionError,
+        litellm.RateLimitError,
     ]
     return create_base_retry_decorator(
         error_types=errors, max_retries=llm.max_retries, run_manager=run_manager
@@ -140,7 +114,7 @@ async def acompletion_with_retry(
 
 
 def _convert_delta_to_message_chunk(
-    _dict: Mapping[str, Any], default_class: type[BaseMessageChunk]
+    _dict: Mapping[str, Any], default_class: Type[BaseMessageChunk]
 ) -> BaseMessageChunk:
     role = _dict.get("role")
     content = _dict.get("content") or ""
@@ -188,19 +162,7 @@ def _convert_message_to_dict(message: BaseMessage) -> dict:
 
 
 class ChatLiteLLM(BaseChatModel):
-    """`LiteLLM` Chat models API.
-
-        1. The ``GOOGLE_API_KEY``` environment variable set with your API key, or
-        2. Pass your API key using the google_api_key kwarg to the ChatGoogle
-           constructor.
-
-    Example:
-        .. code-block:: python
-
-            from langchain.chat_models import ChatGooglePalm
-            chat = ChatGooglePalm()
-
-    """
+    """A chat model that uses the LiteLLM API."""
 
     client: Any  #: :meta private:
     model: str = "gpt-3.5-turbo"
@@ -247,6 +209,7 @@ class ChatLiteLLM(BaseChatModel):
             "stream": self.streaming,
             "n": self.n,
             "temperature": self.temperature,
+            "custom_llm_provider": self.custom_llm_provider,
             **self.model_kwargs,
         }
 
@@ -302,6 +265,15 @@ class ChatLiteLLM(BaseChatModel):
         values["openrouter_api_key"] = get_from_dict_or_env(
             values, "openrouter_api_key", "OPENROUTER_API_KEY", default=""
         )
+        values["cohere_api_key"] = get_from_dict_or_env(
+            values, "cohere_api_key", "COHERE_API_KEY", default=""
+        )
+        values["huggingface_api_key"] = get_from_dict_or_env(
+            values, "huggingface_api_key", "HUGGINGFACE_API_KEY", default=""
+        )
+        values["together_ai_api_key"] = get_from_dict_or_env(
+            values, "together_ai_api_key", "TOGETHERAI_API_KEY", default=""
+        )
         values["client"] = litellm
 
         if values["temperature"] is not None and not 0 <= values["temperature"] <= 1:
@@ -323,17 +295,12 @@ class ChatLiteLLM(BaseChatModel):
         stream: Optional[bool] = None,
         **kwargs: Any,
     ) -> ChatResult:
-        if stream if stream is not None else self.streaming:
-            generation: Optional[ChatGenerationChunk] = None
-            for chunk in self._stream(
-                messages=messages, stop=stop, run_manager=run_manager, **kwargs
-            ):
-                if generation is None:
-                    generation = chunk
-                else:
-                    generation += chunk
-            assert generation is not None
-            return ChatResult(generations=[generation])
+        should_stream = stream if stream is not None else self.streaming
+        if should_stream:
+            stream_iter = self._stream(
+                messages, stop=stop, run_manager=run_manager, **kwargs
+            )
+            return generate_from_stream(stream_iter)
 
         message_dicts, params = self._create_message_dicts(messages, stop)
         params = {**params, **kwargs}
@@ -423,17 +390,12 @@ class ChatLiteLLM(BaseChatModel):
         stream: Optional[bool] = None,
         **kwargs: Any,
     ) -> ChatResult:
-        if stream if stream is not None else self.streaming:
-            generation: Optional[ChatGenerationChunk] = None
-            async for chunk in self._astream(
+        should_stream = stream if stream is not None else self.streaming
+        if should_stream:
+            stream_iter = self._astream(
                 messages=messages, stop=stop, run_manager=run_manager, **kwargs
-            ):
-                if generation is None:
-                    generation = chunk
-                else:
-                    generation += chunk
-            assert generation is not None
-            return ChatResult(generations=[generation])
+            )
+            return await agenerate_from_stream(stream_iter)
 
         message_dicts, params = self._create_message_dicts(messages, stop)
         params = {**params, **kwargs}

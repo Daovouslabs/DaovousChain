@@ -1,10 +1,12 @@
 from typing import Any, Dict, List, Optional
 
+from langchain_core.outputs import Generation, LLMResult
+from langchain_core.pydantic_v1 import Field, root_validator
+
 from langchain.callbacks.manager import CallbackManagerForLLMRun
 from langchain.llms.base import BaseLLM
 from langchain.llms.openai import BaseOpenAI
-from langchain.pydantic_v1 import root_validator
-from langchain.schema.output import Generation, LLMResult
+from langchain.utils.openai import is_openai_v1
 
 
 class VLLM(BaseLLM):
@@ -62,6 +64,13 @@ class VLLM(BaseLLM):
     dtype: str = "auto"
     """The data type for the model weights and activations."""
 
+    download_dir: Optional[str] = None
+    """Directory to download and load the weights. (Default to the default 
+    cache dir of huggingface)"""
+
+    vllm_kwargs: Dict[str, Any] = Field(default_factory=dict)
+    """Holds any model parameters valid for `vllm.LLM` call not explicitly specified."""
+
     client: Any  #: :meta private:
 
     @root_validator()
@@ -81,6 +90,8 @@ class VLLM(BaseLLM):
             tensor_parallel_size=values["tensor_parallel_size"],
             trust_remote_code=values["trust_remote_code"],
             dtype=values["dtype"],
+            download_dir=values["download_dir"],
+            **values["vllm_kwargs"],
         )
 
         return values
@@ -139,17 +150,21 @@ class VLLMOpenAI(BaseOpenAI):
     @property
     def _invocation_params(self) -> Dict[str, Any]:
         """Get the parameters used to invoke the model."""
-        openai_creds: Dict[str, Any] = {
-            "api_key": self.openai_api_key,
-            "api_base": self.openai_api_base,
-        }
 
-        return {
+        params: Dict[str, Any] = {
             "model": self.model_name,
-            **openai_creds,
             **self._default_params,
             "logit_bias": None,
         }
+        if not is_openai_v1():
+            params.update(
+                {
+                    "api_key": self.openai_api_key,
+                    "api_base": self.openai_api_base,
+                }
+            )
+
+        return params
 
     @property
     def _llm_type(self) -> str:

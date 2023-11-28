@@ -17,28 +17,29 @@ from typing import (
     Tuple,
     Type,
     Union,
+    cast,
 )
 
+import numpy as np
 import yaml
+from langchain_core._api import deprecated
+from langchain_core.documents import Document
+from langchain_core.embeddings import Embeddings
+from langchain_core.vectorstores import VectorStore, VectorStoreRetriever
 
-from langchain._api import deprecated
-from langchain.callbacks.manager import (
-    AsyncCallbackManagerForRetrieverRun,
-    CallbackManagerForRetrieverRun,
-)
-from langchain.docstore.document import Document
-from langchain.embeddings.base import Embeddings
+from langchain.callbacks.manager import CallbackManagerForRetrieverRun
 from langchain.utilities.redis import (
     _array_to_buffer,
+    _buffer_to_array,
     check_redis_module_exist,
     get_client,
 )
 from langchain.utils import get_from_dict_or_env
-from langchain.vectorstores.base import VectorStore, VectorStoreRetriever
 from langchain.vectorstores.redis.constants import (
     REDIS_REQUIRED_MODULES,
     REDIS_TAG_SEPARATOR,
 )
+from langchain.vectorstores.utils import maximal_marginal_relevance
 
 logger = logging.getLogger(__name__)
 
@@ -50,16 +51,6 @@ if TYPE_CHECKING:
     from langchain.vectorstores.redis.schema import RedisModel
 
 
-def _redis_key(prefix: str) -> str:
-    """Redis key schema for a given prefix."""
-    return f"{prefix}:{uuid.uuid4().hex}"
-
-
-def _redis_prefix(index_name: str) -> str:
-    """Redis key prefix for a given index."""
-    return f"doc:{index_name}"
-
-
 def _default_relevance_score(val: float) -> float:
     return 1 - val
 
@@ -69,14 +60,14 @@ def check_index_exists(client: RedisType, index_name: str) -> bool:
     try:
         client.ft(index_name).info()
     except:  # noqa: E722
-        logger.info("Index does not exist")
+        logger.debug("Index does not exist")
         return False
-    logger.info("Index already exists")
+    logger.debug("Index already exists")
     return True
 
 
 class Redis(VectorStore):
-    """Wrapper around Redis vector database.
+    """Redis vector database.
 
     To use, you should have the ``redis`` python package installed
     and have a running Redis Enterprise or Redis-Stack server
@@ -90,6 +81,7 @@ class Redis(VectorStore):
     search API available.
 
     .. code-block:: bash
+
         # to run redis stack in docker locally
         docker run -d -p 6379:6379 -p 8001:8001 redis/redis-stack:latest
 
@@ -163,9 +155,12 @@ class Redis(VectorStore):
 
         .. code-block:: python
 
-            rds = Redis.from_existing_index(
+            # must pass in schema and key_prefix from another index
+            existing_rds = Redis.from_existing_index(
                 embeddings, # an Embeddings object
                 index_name="my-index",
+                schema=rds.schema, # schema dumped from another index
+                key_prefix=rds.key_prefix, # key prefix from another index
                 redis_url="redis://localhost:6379",
             )
 
@@ -254,9 +249,10 @@ class Redis(VectorStore):
         index_schema: Optional[Union[Dict[str, str], str, os.PathLike]] = None,
         vector_schema: Optional[Dict[str, Union[str, int]]] = None,
         relevance_score_fn: Optional[Callable[[float], float]] = None,
+        key_prefix: Optional[str] = None,
         **kwargs: Any,
     ):
-        """Initialize with necessary components."""
+        """Initialize Redis vector store with necessary components."""
         self._check_deprecated_kwargs(kwargs)
         try:
             # TODO use importlib to check if redis is installed
@@ -280,6 +276,7 @@ class Redis(VectorStore):
         self.client = redis_client
         self.relevance_score_fn = relevance_score_fn
         self._schema = self._get_schema_with_defaults(index_schema, vector_schema)
+        self.key_prefix = key_prefix if key_prefix is not None else f"doc:{index_name}"
 
     @property
     def embeddings(self) -> Optional[Embeddings]:
@@ -370,6 +367,11 @@ class Redis(VectorStore):
         if "generate" in kwargs:
             kwargs.pop("generate")
 
+        # see if the user specified keys
+        keys = None
+        if "keys" in kwargs:
+            keys = kwargs.pop("keys")
+
         # Name of the search index if not given
         if not index_name:
             index_name = uuid.uuid4().hex
@@ -384,7 +386,7 @@ class Redis(VectorStore):
             generated_schema = _generate_field_schema(metadatas[0])
             if index_schema:
                 # read in the schema solely to compare to the generated schema
-                user_schema = read_schema(index_schema)
+                user_schema = read_schema(index_schema)  # type: ignore
 
                 # the very rare case where a super user decides to pass the index
                 # schema and a document loader is used that has metadata which
@@ -402,6 +404,7 @@ class Redis(VectorStore):
                 index_schema = generated_schema
 
         # Create instance
+        # init the class -- if Redis is unavailable, will throw exception
         instance = cls(
             redis_url,
             index_name,
@@ -411,14 +414,8 @@ class Redis(VectorStore):
             **kwargs,
         )
 
-        # Create embeddings over documents
-        embeddings = embedding.embed_documents(texts)
-
-        # Create the search index
-        instance._create_index(dim=len(embeddings[0]))
-
         # Add data to Redis
-        keys = instance.add_texts(texts, metadatas, embeddings)
+        keys = instance.add_texts(texts, metadatas, keys=keys)
         return instance, keys
 
     @classmethod
@@ -502,6 +499,7 @@ class Redis(VectorStore):
         embedding: Embeddings,
         index_name: str,
         schema: Union[Dict[str, str], str, os.PathLike],
+        key_prefix: Optional[str] = None,
         **kwargs: Any,
     ) -> Redis:
         """Connect to an existing Redis index.
@@ -511,11 +509,16 @@ class Redis(VectorStore):
 
                 from langchain.vectorstores import Redis
                 from langchain.embeddings import OpenAIEmbeddings
+
                 embeddings = OpenAIEmbeddings()
-                redisearch = Redis.from_existing_index(
+
+                # must pass in schema and key_prefix from another index
+                existing_rds = Redis.from_existing_index(
                     embeddings,
                     index_name="my-index",
-                    redis_url="redis://username:password@localhost:6379"
+                    schema=rds.schema, # schema dumped from another index
+                    key_prefix=rds.key_prefix, # key prefix from another index
+                    redis_url="redis://username:password@localhost:6379",
                 )
 
         Args:
@@ -523,8 +526,9 @@ class Redis(VectorStore):
                 for embedding queries.
             index_name (str): Name of the index to connect to.
             schema (Union[Dict[str, str], str, os.PathLike]): Schema of the index
-                and the vector schema. Can be a dict, or path to yaml file
-
+                and the vector schema. Can be a dict, or path to yaml file.
+            key_prefix (Optional[str]): Prefix to use for all keys in Redis associated
+                with this index.
             **kwargs (Any): Additional keyword arguments to pass to the Redis client.
 
         Returns:
@@ -535,28 +539,31 @@ class Redis(VectorStore):
             ImportError: If the redis python package is not installed.
         """
         redis_url = get_from_dict_or_env(kwargs, "redis_url", "REDIS_URL")
-        try:
-            # We need to first remove redis_url from kwargs,
-            # otherwise passing it to Redis will result in an error.
-            if "redis_url" in kwargs:
-                kwargs.pop("redis_url")
-            client = get_client(redis_url=redis_url, **kwargs)
-            # check if redis has redisearch module installed
-            check_redis_module_exist(client, REDIS_REQUIRED_MODULES)
-            # ensure that the index already exists
-            assert check_index_exists(
-                client, index_name
-            ), f"Index {index_name} does not exist"
-        except Exception as e:
-            raise ValueError(f"Redis failed to connect: {e}")
+        # We need to first remove redis_url from kwargs,
+        # otherwise passing it to Redis will result in an error.
+        if "redis_url" in kwargs:
+            kwargs.pop("redis_url")
 
-        return cls(
+        # Create instance
+        # init the class -- if Redis is unavailable, will throw exception
+        instance = cls(
             redis_url,
             index_name,
             embedding,
             index_schema=schema,
+            key_prefix=key_prefix,
             **kwargs,
         )
+
+        # Check for existence of the declared index
+        if not check_index_exists(instance.client, index_name):
+            # Will only raise if the running Redis server does not
+            # have a record of this particular index
+            raise ValueError(
+                f"Redis failed to connect: Index {index_name} does not exist."
+            )
+
+        return instance
 
     @property
     def schema(self) -> Dict[str, List[Any]]:
@@ -683,7 +690,6 @@ class Redis(VectorStore):
             List[str]: List of ids added to the vectorstore
         """
         ids = []
-        prefix = _redis_prefix(self.index_name)
 
         # Get keys or ids from kwargs
         # Other vectorstores use ids
@@ -696,22 +702,24 @@ class Redis(VectorStore):
             if not (isinstance(metadatas, list) and isinstance(metadatas[0], dict)):
                 raise ValueError("Metadatas must be a list of dicts")
 
+        embeddings = embeddings or self._embeddings.embed_documents(list(texts))
+        self._create_index_if_not_exist(dim=len(embeddings[0]))
+
         # Write data to redis
         pipeline = self.client.pipeline(transaction=False)
         for i, text in enumerate(texts):
             # Use provided values by default or fallback
-            key = keys_or_ids[i] if keys_or_ids else _redis_key(prefix)
+            key = keys_or_ids[i] if keys_or_ids else str(uuid.uuid4().hex)
+            if not key.startswith(self.key_prefix + ":"):
+                key = self.key_prefix + ":" + key
             metadata = metadatas[i] if metadatas else {}
             metadata = _prepare_metadata(metadata) if clean_metadata else metadata
-            embedding = (
-                embeddings[i] if embeddings else self._embeddings.embed_query(text)
-            )
             pipeline.hset(
                 key,
                 mapping={
                     self._schema.content_key: text,
                     self._schema.content_vector_key: _array_to_buffer(
-                        embedding, self._schema.vector_dtype
+                        embeddings[i], self._schema.vector_dtype
                     ),
                     **metadata,
                 },
@@ -803,8 +811,10 @@ class Redis(VectorStore):
                 + "score_threshold will be removed in a future release.",
             )
 
+        query_embedding = self._embeddings.embed_query(query)
+
         redis_query, params_dict = self._prepare_query(
-            query,
+            query_embedding,
             k=k,
             filter=filter,
             with_metadata=return_metadata,
@@ -858,13 +868,48 @@ class Redis(VectorStore):
                 Defaults to None.
             return_metadata (bool, optional): Whether to return metadata.
                 Defaults to True.
-            distance_threshold (Optional[float], optional): Distance threshold
-                for vector distance from query vector. Defaults to None.
+            distance_threshold (Optional[float], optional): Maximum vector distance
+                between selected documents and the query vector. Defaults to None.
 
         Returns:
             List[Document]: A list of documents that are most similar to the query
                 text.
+        """
+        query_embedding = self._embeddings.embed_query(query)
+        return self.similarity_search_by_vector(
+            query_embedding,
+            k=k,
+            filter=filter,
+            return_metadata=return_metadata,
+            distance_threshold=distance_threshold,
+            **kwargs,
+        )
 
+    def similarity_search_by_vector(
+        self,
+        embedding: List[float],
+        k: int = 4,
+        filter: Optional[RedisFilterExpression] = None,
+        return_metadata: bool = True,
+        distance_threshold: Optional[float] = None,
+        **kwargs: Any,
+    ) -> List[Document]:
+        """Run similarity search between a query vector and the indexed vectors.
+
+        Args:
+            embedding (List[float]): The query vector for which to find similar
+                documents.
+            k (int): The number of documents to return. Default is 4.
+            filter (RedisFilterExpression, optional): Optional metadata filter.
+                Defaults to None.
+            return_metadata (bool, optional): Whether to return metadata.
+                Defaults to True.
+            distance_threshold (Optional[float], optional): Maximum vector distance
+                between selected documents and the query vector. Defaults to None.
+
+        Returns:
+            List[Document]: A list of documents that are most similar to the query
+                text.
         """
         try:
             import redis
@@ -884,7 +929,7 @@ class Redis(VectorStore):
             )
 
         redis_query, params_dict = self._prepare_query(
-            query,
+            embedding,
             k=k,
             filter=filter,
             distance_threshold=distance_threshold,
@@ -920,6 +965,74 @@ class Redis(VectorStore):
             )
         return docs
 
+    def max_marginal_relevance_search(
+        self,
+        query: str,
+        k: int = 4,
+        fetch_k: int = 20,
+        lambda_mult: float = 0.5,
+        filter: Optional[RedisFilterExpression] = None,
+        return_metadata: bool = True,
+        distance_threshold: Optional[float] = None,
+        **kwargs: Any,
+    ) -> List[Document]:
+        """Return docs selected using the maximal marginal relevance.
+
+        Maximal marginal relevance optimizes for similarity to query AND diversity
+            among selected documents.
+
+        Args:
+            query (str): Text to look up documents similar to.
+            k (int): Number of Documents to return. Defaults to 4.
+            fetch_k (int): Number of Documents to fetch to pass to MMR algorithm.
+            lambda_mult (float): Number between 0 and 1 that determines the degree
+                of diversity among the results with 0 corresponding
+                to maximum diversity and 1 to minimum diversity.
+                Defaults to 0.5.
+            filter (RedisFilterExpression, optional): Optional metadata filter.
+                Defaults to None.
+            return_metadata (bool, optional): Whether to return metadata.
+                Defaults to True.
+            distance_threshold (Optional[float], optional): Maximum vector distance
+                between selected documents and the query vector. Defaults to None.
+
+        Returns:
+            List[Document]: A list of Documents selected by maximal marginal relevance.
+        """
+        # Embed the query
+        query_embedding = self._embeddings.embed_query(query)
+
+        # Fetch the initial documents
+        prefetch_docs = self.similarity_search_by_vector(
+            query_embedding,
+            k=fetch_k,
+            filter=filter,
+            return_metadata=return_metadata,
+            distance_threshold=distance_threshold,
+            **kwargs,
+        )
+        prefetch_ids = [doc.metadata["id"] for doc in prefetch_docs]
+
+        # Get the embeddings for the fetched documents
+        prefetch_embeddings = [
+            _buffer_to_array(
+                cast(
+                    bytes,
+                    self.client.hget(prefetch_id, self._schema.content_vector_key),
+                ),
+                dtype=self._schema.vector_dtype,
+            )
+            for prefetch_id in prefetch_ids
+        ]
+
+        # Select documents using maximal marginal relevance
+        selected_indices = maximal_marginal_relevance(
+            np.array(query_embedding), prefetch_embeddings, lambda_mult=lambda_mult, k=k
+        )
+        selected_docs = [prefetch_docs[i] for i in selected_indices]
+
+        return selected_docs
+
     def _collect_metadata(self, result: "Document") -> Dict[str, Any]:
         """Collect metadata from Redis.
 
@@ -952,19 +1065,16 @@ class Redis(VectorStore):
 
     def _prepare_query(
         self,
-        query: str,
+        query_embedding: List[float],
         k: int = 4,
         filter: Optional[RedisFilterExpression] = None,
         distance_threshold: Optional[float] = None,
         with_metadata: bool = True,
         with_distance: bool = False,
     ) -> Tuple["Query", Dict[str, Any]]:
-        # Creates embedding vector from user query
-        embedding = self._embeddings.embed_query(query)
-
         # Creates Redis query
         params_dict: Dict[str, Union[str, bytes, float]] = {
-            "vector": _array_to_buffer(embedding, self._schema.vector_dtype),
+            "vector": _array_to_buffer(query_embedding, self._schema.vector_dtype),
         }
 
         # prepare return fields including score
@@ -1067,7 +1177,7 @@ class Redis(VectorStore):
         # read in schema (yaml file or dict) and
         # pass to the Pydantic validators
         if index_schema:
-            schema_values = read_schema(index_schema)
+            schema_values = read_schema(index_schema)  # type: ignore
             schema = RedisModel(**schema_values)
 
             # ensure user did not exclude the content field
@@ -1101,7 +1211,7 @@ class Redis(VectorStore):
             schema.add_vector_field(vector_field)
         return schema
 
-    def _create_index(self, dim: int = 1536) -> None:
+    def _create_index_if_not_exist(self, dim: int = 1536) -> None:
         try:
             from redis.commands.search.indexDefinition import (  # type: ignore
                 IndexDefinition,
@@ -1109,7 +1219,7 @@ class Redis(VectorStore):
             )
 
         except ImportError:
-            raise ValueError(
+            raise ImportError(
                 "Could not import redis python package. "
                 "Please install it with `pip install redis`."
             )
@@ -1121,12 +1231,12 @@ class Redis(VectorStore):
 
         # Check if index exists
         if not check_index_exists(self.client, self.index_name):
-            prefix = _redis_prefix(self.index_name)
-
             # Create Redis Index
             self.client.ft(self.index_name).create_index(
                 fields=self._schema.get_fields(),
-                definition=IndexDefinition(prefix=[prefix], index_type=IndexType.HASH),
+                definition=IndexDefinition(
+                    prefix=[self.key_prefix], index_type=IndexType.HASH
+                ),
             )
 
     def _calculate_fp_distance(self, distance: str) -> float:
@@ -1271,7 +1381,7 @@ def _prepare_metadata(metadata: Dict[str, Any]) -> Dict[str, Any]:
 
     clean_meta: Dict[str, Union[str, float, int]] = {}
     for key, value in metadata.items():
-        if not value:
+        if value is None:
             clean_meta[key] = ""
             continue
 
@@ -1314,6 +1424,7 @@ class RedisVectorStoreRetriever(VectorStoreRetriever):
         "similarity",
         "similarity_distance_threshold",
         "similarity_score_threshold",
+        "mmr",
     ]
     """Allowed search types."""
 
@@ -1327,7 +1438,6 @@ class RedisVectorStoreRetriever(VectorStoreRetriever):
     ) -> List[Document]:
         if self.search_type == "similarity":
             docs = self.vectorstore.similarity_search(query, **self.search_kwargs)
-
         elif self.search_type == "similarity_distance_threshold":
             if self.search_kwargs["distance_threshold"] is None:
                 raise ValueError(
@@ -1343,14 +1453,13 @@ class RedisVectorStoreRetriever(VectorStoreRetriever):
                 )
             )
             docs = [doc for doc, _ in docs_and_similarities]
+        elif self.search_type == "mmr":
+            docs = self.vectorstore.max_marginal_relevance_search(
+                query, **self.search_kwargs
+            )
         else:
             raise ValueError(f"search_type of {self.search_type} not allowed.")
         return docs
-
-    async def _aget_relevant_documents(
-        self, query: str, *, run_manager: AsyncCallbackManagerForRetrieverRun
-    ) -> List[Document]:
-        raise NotImplementedError("RedisVectorStoreRetriever does not support async")
 
     def add_documents(self, documents: List[Document], **kwargs: Any) -> List[str]:
         """Add documents to vectorstore."""

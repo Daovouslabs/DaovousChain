@@ -1,16 +1,22 @@
 """Tool for the DuckDuckGo search API."""
 
 import warnings
-from typing import Any, Optional
+from typing import Any, Optional, Type
+
+from langchain_core.pydantic_v1 import BaseModel, Field
 
 from langchain.callbacks.manager import (
     AsyncCallbackManagerForToolRun,
     CallbackManagerForToolRun,
 )
-from langchain.pydantic_v1 import Field
 from langchain.tools.base import BaseTool
 from langchain.utilities.duckduckgo_search import DuckDuckGoSearchAPIWrapper
 from langchain.sync_utils import make_async
+
+
+class DDGInput(BaseModel):
+    query: str = Field(description="search query to look up")
+
 
 class DuckDuckGoSearchRun(BaseTool):
     """Tool that adds the capability to query the DuckDuckGo search API."""
@@ -24,6 +30,7 @@ class DuckDuckGoSearchRun(BaseTool):
     api_wrapper: DuckDuckGoSearchAPIWrapper = Field(
         default_factory=DuckDuckGoSearchAPIWrapper
     )
+    args_schema: Type[BaseModel] = DDGInput
 
     def _run(
         self,
@@ -56,6 +63,8 @@ class DuckDuckGoSearchResults(BaseTool):
     api_wrapper: DuckDuckGoSearchAPIWrapper = Field(
         default_factory=DuckDuckGoSearchAPIWrapper
     )
+    backend: str = "api"
+    args_schema: Type[BaseModel] = DDGInput
 
     def _run(
         self,
