@@ -1,6 +1,6 @@
 [tool.poetry]
 name = "langchain"
-version = "0.0.341"
+version = "0.0.342"
 description = "Building applications with LLMs through composability"
 authors = []
 license = "MIT"

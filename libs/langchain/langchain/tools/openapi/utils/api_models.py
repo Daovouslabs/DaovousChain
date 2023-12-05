@@ -28,6 +28,12 @@ PRIMITIVE_TYPES = {
     "array": List,
     "object": Dict,
     "null": None,
+    "str": str,
+    "int": int,
+    "float": float,
+    "list": List,
+    "tuple": Tuple,
+    "dict": Dict,
 }
 
 
@@ -116,6 +122,11 @@ class APIProperty(APIPropertyBase):
         schema: Schema,
     ) -> Optional[Union[str, Tuple[str, ...]]]:
         type_ = schema.type
+        if type_ is None:
+            if not schema.default:
+                return type(schema.default).__name__
+            else:
+                return "string"
         if not isinstance(type_, list):
             return type_
         else:
@@ -155,6 +166,7 @@ class APIProperty(APIPropertyBase):
     def _get_schema_type(parameter: Parameter, schema: Optional[Schema]) -> SCHEMA_TYPE:
         if schema is None:
             return None
+
         schema_type: SCHEMA_TYPE = APIProperty._cast_schema_list_type(schema)
         if schema_type == "array":
             schema_type = APIProperty._get_schema_type_for_array(schema)

@@ -8,7 +8,7 @@ from langchain_core.language_models import BaseLanguageModel
 from langchain_core.pydantic_v1 import BaseModel, Field
 from requests import Response
 
-from langchain.callbacks.manager import CallbackManagerForChainRun, Callbacks
+from langchain.callbacks.manager import CallbackManagerForChainRun, Callbacks, AsyncCallbackManagerForChainRun
 from langchain.chains.api.openapi.requests_chain import APIRequesterChain
 from langchain.chains.api.openapi.response_chain import APIResponderChain
 from langchain.chains.base import Chain
@@ -133,7 +133,9 @@ class OpenAPIEndpointChain(Chain, BaseModel):
         try:
             request_args = self.deserialize_json_input(api_arguments)
             method = getattr(self.requests, self.api_operation.method.value)
+            print(f"### request_args: {request_args}")
             api_response: Response = method(**request_args)
+            print(f"### api_response: {request_args}")
             if api_response.status_code != 200:
                 method_str = str(self.api_operation.method.value)
                 response_text = (
@@ -158,6 +160,61 @@ class OpenAPIEndpointChain(Chain, BaseModel):
             )
             answer = cast(str, _answer)
             _run_manager.on_text(answer, color="yellow", end="\n", verbose=self.verbose)
+            return self._get_output(answer, intermediate_steps)
+        else:
+            return self._get_output(response_text, intermediate_steps)
+        
+    async def _acall(
+        self,
+        inputs: Dict[str, Any],
+        run_manager: Optional[AsyncCallbackManagerForChainRun] = None,
+    ) -> Dict[str, str]:
+        _run_manager = run_manager or AsyncCallbackManagerForChainRun.get_noop_manager()
+        intermediate_steps = {}
+        instructions = inputs[self.instructions_key]
+        instructions = instructions[: self.max_text_length]
+        _api_arguments = await self.api_request_chain.apredict_and_parse(
+            instructions=instructions, callbacks=_run_manager.get_child()
+        )
+        api_arguments = cast(str, _api_arguments)
+        intermediate_steps["request_args"] = api_arguments
+        await _run_manager.on_text(
+            api_arguments, color="green", end="\n", verbose=self.verbose
+        )
+        if api_arguments.startswith("ERROR"):
+            return self._get_output(api_arguments, intermediate_steps)
+        elif api_arguments.startswith("MESSAGE:"):
+            return self._get_output(
+                api_arguments[len("MESSAGE:") :], intermediate_steps
+            )
+        try:
+            request_args = self.deserialize_json_input(api_arguments)
+            method = getattr(self.requests, self.api_operation.method.value)
+            api_response: Response = method(**request_args)
+            if api_response.status_code != 200:
+                method_str = str(self.api_operation.method.value)
+                response_text = (
+                    f"{api_response.status_code}: {api_response.reason}"
+                    + f"\nFor {method_str.upper()}  {request_args['url']}\n"
+                    + f"Called with args: {request_args['params']}"
+                )
+            else:
+                response_text = api_response.text
+        except Exception as e:
+            response_text = f"Error with message {str(e)}"
+        response_text = response_text[: self.max_text_length]
+        intermediate_steps["response_text"] = response_text
+        await _run_manager.on_text(
+            response_text, color="blue", end="\n", verbose=self.verbose
+        )
+        if self.api_response_chain is not None:
+            _answer = await self.api_response_chain.apredict_and_parse(
+                response=response_text,
+                instructions=instructions,
+                callbacks=_run_manager.get_child(),
+            )
+            answer = cast(str, _answer)
+            await _run_manager.on_text(answer, color="yellow", end="\n", verbose=self.verbose)
             return self._get_output(answer, intermediate_steps)
         else:
             return self._get_output(response_text, intermediate_steps)

@@ -3,6 +3,7 @@
 import json
 import re
 from typing import Any
+from datetime import datetime
 
 from langchain_core.language_models import BaseLanguageModel
 from langchain_core.output_parsers import BaseOutputParser
@@ -23,14 +24,16 @@ class APIRequesterOutputParser(BaseOutputParser):
 
     def parse(self, llm_output: str) -> str:
         """Parse the request and error tags."""
-
-        json_match = re.search(r"```json(.*?)```", llm_output, re.DOTALL)
-        if json_match:
-            return self._load_json_block(json_match.group(1).strip())
-        message_match = re.search(r"```text(.*?)```", llm_output, re.DOTALL)
-        if message_match:
-            return f"MESSAGE: {message_match.group(1).strip()}"
-        return "ERROR making request"
+        try:
+            return json.dumps(json.loads(llm_output, strict=False))
+        except Exception as e:
+            json_match = re.search(r"```json(.*?)```", llm_output, re.DOTALL) or re.search(r"```json(.*?)$", llm_output, re.DOTALL)
+            if json_match:
+                return self._load_json_block(json_match.group(1).strip())
+            message_match = re.search(r"```text(.*?)```", llm_output, re.DOTALL)
+            if message_match:
+                return f"MESSAGE: {message_match.group(1).strip()}"
+            return f"ERROR making request {llm_output}"
 
     @property
     def _type(self) -> str:
@@ -53,7 +56,7 @@ class APIRequesterChain(LLMChain):
         prompt = PromptTemplate(
             template=REQUEST_TEMPLATE,
             output_parser=output_parser,
-            partial_variables={"schema": typescript_definition},
+            partial_variables={"schema": typescript_definition, "current_time": datetime.now().strftime("%Y-%m-%d %H:%M:%S")},
             input_variables=["instructions"],
         )
         return cls(prompt=prompt, llm=llm, verbose=verbose, **kwargs)

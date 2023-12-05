@@ -7,6 +7,8 @@ API_SCHEMA: ```typescript
 
 USER_INSTRUCTIONS: "{instructions}"
 
+Current date and time: {current_time}
+
 Your arguments must be plain json provided in a markdown block:
 
 ARGS: ```json
@@ -37,15 +39,15 @@ RESPONSE_TEMPLATE = """You are a helpful AI assistant trained to answer user que
 You attempted to call an API, which resulted in:
 API_RESPONSE: {response}
 
-USER_COMMENT: "{instructions}"
+USER_INSTRUCTIONS: "{instructions}"
 
 
-If the API_RESPONSE can answer the USER_COMMENT respond with the following markdown json block:
+If the API_RESPONSE can answer the USER_INSTRUCTIONS respond like the following markdown json block:
 Response: ```json
-{{"response": "Human-understandable synthesis of the API_RESPONSE"}}
+{{"response": "Human-understandable synthesis of the API_RESPONSE based on USER_INSTRUCTIONS"}}
 ```
 
-Otherwise respond with the following markdown json block:
+Otherwise respond like the following markdown json block:
 Response Error: ```json
 {{"response": "What you did and a concise statement of the resulting error. If it can be easily fixed, provide a suggestion."}}
 ```
@@ -54,4 +56,5 @@ You MUST respond as a markdown json code block. The person you are responding to
 
 Begin:
 ---
+Response:
 """

@@ -26,11 +26,15 @@ class APIResponderOutputParser(BaseOutputParser):
 
     def parse(self, llm_output: str) -> str:
         """Parse the response and error tags."""
-        json_match = re.search(r"```json(.*?)```", llm_output, re.DOTALL)
-        if json_match:
-            return self._load_json_block(json_match.group(1).strip())
-        else:
-            raise ValueError(f"No response found in output: {llm_output}.")
+        try:
+            response_content = json.loads(llm_output, strict=False)
+            return response_content.get("response", f"ERROR parsing response {response_content}.")
+        except Exception as e:
+            json_match = re.search(r"```json(.*?)```", llm_output, re.DOTALL) or re.search(r"```json(.*?)$", llm_output, re.DOTALL)
+            if json_match:
+                return self._load_json_block(json_match.group(1).strip())
+            else:
+                raise ValueError(f"No response found in output: {llm_output}.")
 
     @property
     def _type(self) -> str:
