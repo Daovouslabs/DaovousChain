@@ -162,3 +162,23 @@ class DallEAPIWrapper(BaseModel):
             image_urls = self.separator.join([item["url"] for item in response["data"]])
 
         return image_urls if image_urls else "No image was generated"
+    
+    async def arun(self, query: str) -> str:
+        """Run query through OpenAI and parse result."""
+
+        if is_openai_v1():
+            response = await self.client.generate(
+                prompt=query,
+                n=self.n,
+                size=self.size,
+                model=self.model_name,
+                quality=self.quality,
+            )
+            image_urls = self.separator.join([item.url for item in response.data])
+        else:
+            response = await self.client.acreate(
+                prompt=query, n=self.n, size=self.size, model=self.model_name
+            )
+            image_urls = self.separator.join([item["url"] for item in response["data"]])
+
+        return image_urls if image_urls else "No image was generated"

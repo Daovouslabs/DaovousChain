@@ -2,10 +2,12 @@
 
 from typing import Optional
 
-from langchain_core.callbacks import CallbackManagerForToolRun
+from langchain_core.callbacks import CallbackManagerForToolRun, AsyncCallbackManagerForToolRun
 from langchain_core.tools import BaseTool
 
 from langchain_community.utilities.google_search import GoogleSearchAPIWrapper
+
+from langchain.sync_utils import make_async
 
 
 class GoogleSearchRun(BaseTool):
@@ -26,6 +28,14 @@ class GoogleSearchRun(BaseTool):
     ) -> str:
         """Use the tool."""
         return self.api_wrapper.run(query)
+    
+    async def _arun(
+        self,
+        query: str,
+        run_manager: Optional[AsyncCallbackManagerForToolRun] = None,
+    ) -> str:
+        """Use the tool."""
+        return await make_async(self.api_wrapper.run)(query)
 
 
 class GoogleSearchResults(BaseTool):
@@ -47,3 +57,11 @@ class GoogleSearchResults(BaseTool):
     ) -> str:
         """Use the tool."""
         return str(self.api_wrapper.results(query, self.num_results))
+    
+    async def _arun(
+        self,
+        query: str,
+        run_manager: Optional[AsyncCallbackManagerForToolRun] = None,
+    ) -> str:
+        """Use the tool."""
+        return str(make_async(self.api_wrapper.results)(query, self.num_results))
