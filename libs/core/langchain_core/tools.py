@@ -357,7 +357,7 @@ class ChildTool(BaseTool):
                     f"or callable. Received: {self.handle_tool_error}"
                 )
             run_manager.on_tool_end(
-                str(observation), color="red", name=self.name, **kwargs
+                str(observation), color="red", name=self.name, metadata=self.metadata, **kwargs
             )
             return observation
         except (Exception, KeyboardInterrupt) as e:
@@ -365,7 +365,7 @@ class ChildTool(BaseTool):
             raise e
         else:
             run_manager.on_tool_end(
-                str(observation), color=color, name=self.name, **kwargs
+                str(observation), color=color, name=self.name, metadata=self.metadata, **kwargs
             )
             return observation
 
@@ -432,7 +432,7 @@ class ChildTool(BaseTool):
                     f"or callable. Received: {self.handle_tool_error}"
                 )
             await run_manager.on_tool_end(
-                str(observation), color="red", name=self.name, **kwargs
+                str(observation), color="red", name=self.name, metadata=self.metadata, **kwargs
             )
             return observation
         except (Exception, KeyboardInterrupt) as e:
@@ -440,7 +440,7 @@ class ChildTool(BaseTool):
             raise e
         else:
             await run_manager.on_tool_end(
-                str(observation), color=color, name=self.name, **kwargs
+                str(observation), color=color, name=self.name, metadata=self.metadata, **kwargs
             )
             return observation
 
