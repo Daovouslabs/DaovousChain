@@ -7,15 +7,19 @@ from langchain_core.retrievers import BaseRetriever
 
 
 class VectorSearchConfig(BaseModel, extra="allow"):  # type: ignore[call-arg]
+    """Configuration for vector search."""
+
     numberOfResults: int = 4
 
 
 class RetrievalConfig(BaseModel, extra="allow"):  # type: ignore[call-arg]
+    """Configuration for retrieval."""
+
     vectorSearchConfiguration: VectorSearchConfig
 
 
 class AmazonKnowledgeBasesRetriever(BaseRetriever):
-    """A retriever class for `Amazon Bedrock Knowledge Bases`.
+    """`Amazon Bedrock Knowledge Bases` retrieval.
 
     See https://aws.amazon.com/bedrock/knowledge-bases for more info.
 
@@ -84,12 +88,12 @@ class AmazonKnowledgeBasesRetriever(BaseRetriever):
 
             return values
         except ImportError:
-            raise ModuleNotFoundError(
+            raise ImportError(
                 "Could not import boto3 python package. "
                 "Please install it with `pip install boto3`."
             )
         except UnknownServiceError as e:
-            raise ModuleNotFoundError(
+            raise ImportError(
                 "Ensure that you have installed the latest boto3 package "
                 "that contains the API for `bedrock-runtime-agent`."
             ) from e

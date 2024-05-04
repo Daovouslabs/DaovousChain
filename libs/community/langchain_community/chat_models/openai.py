@@ -20,6 +20,7 @@ from typing import (
     Union,
 )
 
+from langchain_core._api.deprecation import deprecated
 from langchain_core.callbacks import (
     AsyncCallbackManagerForLLMRun,
     CallbackManagerForLLMRun,
@@ -66,7 +67,7 @@ def _import_tiktoken() -> Any:
     try:
         import tiktoken
     except ImportError:
-        raise ValueError(
+        raise ImportError(
             "Could not import tiktoken python package. "
             "This is needed in order to calculate get_token_ids. "
             "Please install it with `pip install tiktoken`."
@@ -143,6 +144,9 @@ def _convert_delta_to_message_chunk(
         return default_class(content=content)
 
 
+@deprecated(
+    since="0.0.10", removal="0.3.0", alternative_import="langchain_openai.ChatOpenAI"
+)
 class ChatOpenAI(BaseChatModel):
     """`OpenAI` Chat large language models API.
 
@@ -156,7 +160,7 @@ class ChatOpenAI(BaseChatModel):
         .. code-block:: python
 
             from langchain_community.chat_models import ChatOpenAI
-            openai = ChatOpenAI(model_name="gpt-3.5-turbo")
+            openai = ChatOpenAI(model="gpt-3.5-turbo")
     """
 
     @property
@@ -407,10 +411,12 @@ class ChatOpenAI(BaseChatModel):
                 dict(finish_reason=finish_reason) if finish_reason is not None else None
             )
             default_chunk_class = chunk.__class__
-            chunk = ChatGenerationChunk(message=chunk, generation_info=generation_info)
-            yield chunk
+            cg_chunk = ChatGenerationChunk(
+                message=chunk, generation_info=generation_info
+            )
             if run_manager:
-                run_manager.on_llm_new_token(chunk.text, chunk=chunk)
+                run_manager.on_llm_new_token(cg_chunk.text, chunk=cg_chunk)
+            yield cg_chunk
 
     def _generate(
         self,
@@ -454,9 +460,12 @@ class ChatOpenAI(BaseChatModel):
             response = response.dict()
         for res in response["choices"]:
             message = convert_dict_to_message(res["message"])
+            generation_info = dict(finish_reason=res.get("finish_reason"))
+            if "logprobs" in res:
+                generation_info["logprobs"] = res["logprobs"]
             gen = ChatGeneration(
                 message=message,
-                generation_info=dict(finish_reason=res.get("finish_reason")),
+                generation_info=generation_info,
             )
             generations.append(gen)
         token_usage = response.get("usage", {})
@@ -494,10 +503,12 @@ class ChatOpenAI(BaseChatModel):
                 dict(finish_reason=finish_reason) if finish_reason is not None else None
             )
             default_chunk_class = chunk.__class__
-            chunk = ChatGenerationChunk(message=chunk, generation_info=generation_info)
-            yield chunk
+            cg_chunk = ChatGenerationChunk(
+                message=chunk, generation_info=generation_info
+            )
             if run_manager:
-                await run_manager.on_llm_new_token(token=chunk.text, chunk=chunk)
+                await run_manager.on_llm_new_token(token=cg_chunk.text, chunk=cg_chunk)
+            yield cg_chunk
 
     async def _agenerate(
         self,
@@ -547,7 +558,7 @@ class ChatOpenAI(BaseChatModel):
         if self.openai_proxy:
             import openai
 
-            openai.proxy = {"http": self.openai_proxy, "https": self.openai_proxy}  # type: ignore[assignment]  # noqa: E501
+            openai.proxy = {"http": self.openai_proxy, "https": self.openai_proxy}
         return {**self._default_params, **openai_creds}
 
     def _get_invocation_params(

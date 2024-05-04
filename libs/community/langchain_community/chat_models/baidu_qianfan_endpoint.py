@@ -1,5 +1,3 @@
-from __future__ import annotations
-
 import logging
 from typing import Any, AsyncIterator, Dict, Iterator, List, Mapping, Optional, cast
 
@@ -52,16 +50,23 @@ def convert_message_to_dict(message: BaseMessage) -> dict:
 
 def _convert_dict_to_message(_dict: Mapping[str, Any]) -> AIMessage:
     content = _dict.get("result", "") or ""
+    additional_kwargs: Mapping[str, Any] = {}
     if _dict.get("function_call"):
         additional_kwargs = {"function_call": dict(_dict["function_call"])}
         if "thoughts" in additional_kwargs["function_call"]:
             # align to api sample, which affects the llm function_call output
             additional_kwargs["function_call"].pop("thoughts")
-    else:
-        additional_kwargs = {}
+
+    additional_kwargs = {**_dict.get("body", {}), **additional_kwargs}
     return AIMessage(
         content=content,
-        additional_kwargs={**_dict.get("body", {}), **additional_kwargs},
+        additional_kwargs=dict(
+            finish_reason=additional_kwargs.get("finish_reason", ""),
+            request_id=additional_kwargs["id"],
+            object=additional_kwargs.get("object", ""),
+            search_info=additional_kwargs.get("search_info", []),
+            function_call=additional_kwargs.get("function_call", {}),
+        ),
     )
 
 
@@ -83,7 +88,12 @@ class QianfanChatEndpoint(BaseChatModel):
                 endpoint="your_endpoint", qianfan_ak="your_ak", qianfan_sk="your_sk")
     """
 
+    init_kwargs: Dict[str, Any] = Field(default_factory=dict)
+    """init kwargs for qianfan client init, such as `query_per_second` which is 
+        associated with qianfan resource object to limit QPS"""
+
     model_kwargs: Dict[str, Any] = Field(default_factory=dict)
+    """extra params for model invoke using with `do`."""
 
     client: Any
 
@@ -93,7 +103,7 @@ class QianfanChatEndpoint(BaseChatModel):
     streaming: Optional[bool] = False
     """Whether to stream the results or not."""
 
-    request_timeout: Optional[int] = 60
+    request_timeout: Optional[int] = Field(60, alias="timeout")
     """request timeout for chat http requests"""
 
     top_p: Optional[float] = 0.8
@@ -115,6 +125,11 @@ class QianfanChatEndpoint(BaseChatModel):
     endpoint: Optional[str] = None
     """Endpoint of the Qianfan LLM, required if custom model used."""
 
+    class Config:
+        """Configuration for this pydantic object."""
+
+        allow_population_by_field_name = True
+
     @root_validator()
     def validate_environment(cls, values: Dict) -> Dict:
         values["qianfan_ak"] = convert_to_secret_str(
@@ -122,6 +137,7 @@ class QianfanChatEndpoint(BaseChatModel):
                 values,
                 "qianfan_ak",
                 "QIANFAN_AK",
+                default="",
             )
         )
         values["qianfan_sk"] = convert_to_secret_str(
@@ -129,14 +145,18 @@ class QianfanChatEndpoint(BaseChatModel):
                 values,
                 "qianfan_sk",
                 "QIANFAN_SK",
+                default="",
             )
         )
         params = {
-            "ak": values["qianfan_ak"].get_secret_value(),
-            "sk": values["qianfan_sk"].get_secret_value(),
+            **values.get("init_kwargs", {}),
             "model": values["model"],
             "stream": values["streaming"],
         }
+        if values["qianfan_ak"].get_secret_value() != "":
+            params["ak"] = values["qianfan_ak"].get_secret_value()
+        if values["qianfan_sk"].get_secret_value() != "":
+            params["sk"] = values["qianfan_sk"].get_secret_value()
         if values["endpoint"] is not None and values["endpoint"] != "":
             params["endpoint"] = values["endpoint"]
         try:
@@ -144,7 +164,7 @@ class QianfanChatEndpoint(BaseChatModel):
 
             values["client"] = qianfan.ChatCompletion(**params)
         except ImportError:
-            raise ValueError(
+            raise ImportError(
                 "qianfan package not found, please install it with "
                 "`pip install qianfan`"
             )
@@ -230,11 +250,18 @@ class QianfanChatEndpoint(BaseChatModel):
 
         Example:
             .. code-block:: python
-                response = qianfan_model("Tell me a joke.")
+                response = qianfan_model.invoke("Tell me a joke.")
         """
         if self.streaming:
             completion = ""
+            token_usage = {}
+            chat_generation_info: Dict = {}
             for chunk in self._stream(messages, stop, run_manager, **kwargs):
+                chat_generation_info = (
+                    chunk.generation_info
+                    if chunk.generation_info is not None
+                    else chat_generation_info
+                )
                 completion += chunk.text
             lc_msg = AIMessage(content=completion, additional_kwargs={})
             gen = ChatGeneration(
@@ -243,9 +270,13 @@ class QianfanChatEndpoint(BaseChatModel):
             )
             return ChatResult(
                 generations=[gen],
-                llm_output={"token_usage": {}, "model_name": self.model},
+                llm_output={
+                    "token_usage": chat_generation_info.get("usage", {}),
+                    "model_name": self.model,
+                },
             )
         params = self._convert_prompt_msg_params(messages, **kwargs)
+        params["stop"] = stop
         response_payload = self.client.do(**params)
         lc_msg = _convert_dict_to_message(response_payload)
         gen = ChatGeneration(
@@ -269,7 +300,13 @@ class QianfanChatEndpoint(BaseChatModel):
         if self.streaming:
             completion = ""
             token_usage = {}
+            chat_generation_info: Dict = {}
             async for chunk in self._astream(messages, stop, run_manager, **kwargs):
+                chat_generation_info = (
+                    chunk.generation_info
+                    if chunk.generation_info is not None
+                    else chat_generation_info
+                )
                 completion += chunk.text
 
             lc_msg = AIMessage(content=completion, additional_kwargs={})
@@ -279,9 +316,13 @@ class QianfanChatEndpoint(BaseChatModel):
             )
             return ChatResult(
                 generations=[gen],
-                llm_output={"token_usage": {}, "model_name": self.model},
+                llm_output={
+                    "token_usage": chat_generation_info.get("usage", {}),
+                    "model_name": self.model,
+                },
             )
         params = self._convert_prompt_msg_params(messages, **kwargs)
+        params["stop"] = stop
         response_payload = await self.client.ado(**params)
         lc_msg = _convert_dict_to_message(response_payload)
         generations = []
@@ -305,20 +346,24 @@ class QianfanChatEndpoint(BaseChatModel):
         **kwargs: Any,
     ) -> Iterator[ChatGenerationChunk]:
         params = self._convert_prompt_msg_params(messages, **kwargs)
+        params["stop"] = stop
+        params["stream"] = True
         for res in self.client.do(**params):
             if res:
                 msg = _convert_dict_to_message(res)
+                additional_kwargs = msg.additional_kwargs.get("function_call", {})
                 chunk = ChatGenerationChunk(
                     text=res["result"],
                     message=AIMessageChunk(
                         content=msg.content,
                         role="assistant",
-                        additional_kwargs=msg.additional_kwargs,
+                        additional_kwargs=additional_kwargs,
                     ),
+                    generation_info=msg.additional_kwargs,
                 )
-                yield chunk
                 if run_manager:
                     run_manager.on_llm_new_token(chunk.text, chunk=chunk)
+                yield chunk
 
     async def _astream(
         self,
@@ -328,17 +373,21 @@ class QianfanChatEndpoint(BaseChatModel):
         **kwargs: Any,
     ) -> AsyncIterator[ChatGenerationChunk]:
         params = self._convert_prompt_msg_params(messages, **kwargs)
+        params["stop"] = stop
+        params["stream"] = True
         async for res in await self.client.ado(**params):
             if res:
                 msg = _convert_dict_to_message(res)
+                additional_kwargs = msg.additional_kwargs.get("function_call", {})
                 chunk = ChatGenerationChunk(
                     text=res["result"],
                     message=AIMessageChunk(
                         content=msg.content,
                         role="assistant",
-                        additional_kwargs=msg.additional_kwargs,
+                        additional_kwargs=additional_kwargs,
                     ),
+                    generation_info=msg.additional_kwargs,
                 )
-                yield chunk
                 if run_manager:
                     await run_manager.on_llm_new_token(chunk.text, chunk=chunk)
+                yield chunk
