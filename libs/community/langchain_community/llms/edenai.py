@@ -18,7 +18,7 @@ logger = logging.getLogger(__name__)
 
 
 class EdenAI(LLM):
-    """Wrapper around edenai models.
+    """EdenAI models.
 
     To use, you should have
     the environment variable ``EDENAI_API_KEY`` set with your API token.
@@ -45,7 +45,7 @@ class EdenAI(LLM):
 
     model: Optional[str] = None
     """
-    model name for above provider (eg: 'text-davinci-003' for openai)
+    model name for above provider (eg: 'gpt-3.5-turbo-instruct' for openai)
     available models are shown on https://docs.edenai.co/ under 'available providers'
     """
 

@@ -2,6 +2,7 @@
 
 from typing import Optional
 
+from langchain_core._api.deprecation import deprecated
 from langchain_core.callbacks import CallbackManagerForToolRun, AsyncCallbackManagerForToolRun
 from langchain_core.tools import BaseTool
 
@@ -10,6 +11,11 @@ from langchain_community.utilities.google_search import GoogleSearchAPIWrapper
 from langchain.sync_utils import make_async
 
 
+@deprecated(
+    since="0.0.33",
+    removal="0.3.0",
+    alternative_import="langchain_google_community.GoogleSearchRun",
+)
 class GoogleSearchRun(BaseTool):
     """Tool that queries the Google search API."""
 
@@ -28,20 +34,17 @@ class GoogleSearchRun(BaseTool):
     ) -> str:
         """Use the tool."""
         return self.api_wrapper.run(query)
-    
-    async def _arun(
-        self,
-        query: str,
-        run_manager: Optional[AsyncCallbackManagerForToolRun] = None,
-    ) -> str:
-        """Use the tool."""
-        return await make_async(self.api_wrapper.run)(query)
 
 
+@deprecated(
+    since="0.0.33",
+    removal="0.3.0",
+    alternative_import="langchain_google_community.GoogleSearchResults",
+)
 class GoogleSearchResults(BaseTool):
     """Tool that queries the Google Search API and gets back json."""
 
-    name: str = "Google Search Results JSON"
+    name: str = "google_search_results_json"
     description: str = (
         "A wrapper around Google Search. "
         "Useful for when you need to answer questions about current events. "

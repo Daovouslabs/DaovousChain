@@ -37,8 +37,7 @@ _LANGCHAIN_DEFAULT_COLLECTION_NAME = "langchain_store"
 
 
 class TimescaleVector(VectorStore):
-    """VectorStore implementation using the timescale vector client to store vectors
-    in Postgres.
+    """Timescale Postgres vector store
 
     To use, you should have the ``timescale_vector`` python package installed.
 
@@ -151,7 +150,7 @@ class TimescaleVector(VectorStore):
         num_dimensions = len(embeddings[0])
 
         if ids is None:
-            ids = [str(uuid.uuid1()) for _ in texts]
+            ids = [str(uuid.uuid4()) for _ in texts]
 
         if not metadatas:
             metadatas = [{} for _ in texts]
@@ -192,7 +191,7 @@ class TimescaleVector(VectorStore):
         num_dimensions = len(embeddings[0])
 
         if ids is None:
-            ids = [str(uuid.uuid1()) for _ in texts]
+            ids = [str(uuid.uuid4()) for _ in texts]
 
         if not metadatas:
             metadatas = [{} for _ in texts]
@@ -233,7 +232,7 @@ class TimescaleVector(VectorStore):
             kwargs: vectorstore specific parameters
         """
         if ids is None:
-            ids = [str(uuid.uuid1()) for _ in texts]
+            ids = [str(uuid.uuid4()) for _ in texts]
 
         if not metadatas:
             metadatas = [{} for _ in texts]
@@ -260,7 +259,7 @@ class TimescaleVector(VectorStore):
             kwargs: vectorstore specific parameters
         """
         if ids is None:
-            ids = [str(uuid.uuid1()) for _ in texts]
+            ids = [str(uuid.uuid4()) for _ in texts]
 
         if not metadatas:
             metadatas = [{} for _ in texts]
