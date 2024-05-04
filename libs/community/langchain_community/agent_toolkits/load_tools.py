@@ -213,6 +213,7 @@ def _get_open_meteo_api(llm: BaseLanguageModel) -> BaseTool:
         name="Open-Meteo-API",
         description="Useful for when you want to get weather information from the OpenMeteo API. The input should be a question in natural language that this API can answer.",
         func=chain.run,
+        coroutine=chain.arun
     )
 
 
@@ -244,6 +245,7 @@ def _get_news_api(llm: BaseLanguageModel, **kwargs: Any) -> BaseTool:
         name="News-API",
         description="Use this when you want to get information about the top headlines of current news stories. The input should be a question in natural language that this API can answer.",
         func=chain.run,
+        coroutine=chain.arun
     )
 
 
@@ -269,6 +271,7 @@ def _get_tmdb_api(llm: BaseLanguageModel, **kwargs: Any) -> BaseTool:
         name="TMDB-API",
         description="Useful for when you want to get information from The Movie Database. The input should be a question in natural language that this API can answer.",
         func=chain.run,
+        coroutine=chain.arun
     )
 
 
@@ -294,6 +297,7 @@ def _get_podcast_api(llm: BaseLanguageModel, **kwargs: Any) -> BaseTool:
         name="Podcast-API",
         description="Use the Listen Notes Podcast API to search all podcasts or episodes. The input should be a question in natural language that this API can answer.",
         func=chain.run,
+        coroutine=chain.arun
     )
 
 
@@ -301,7 +305,7 @@ def _get_lambda_api(**kwargs: Any) -> BaseTool:
     return Tool(
         name=kwargs["awslambda_tool_name"],
         description=kwargs["awslambda_tool_description"],
-        func=LambdaWrapper(**kwargs).run,
+        func=LambdaWrapper(**kwargs).run
     )
 
 
